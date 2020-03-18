@@ -30,7 +30,8 @@ macro(link_RectangleBinPack DST_PROJ)
     set(RBP_SRCS "${RBP_BASE_SRC};${RBP_DIR}/${RBP_ALG_TYPE}.cpp")
     set(RBP_HEADERS "${RBP_BASE_HEADER};${RBP_DIR}/${RBP_ALG_TYPE}.h")
     add_library(${RBP_PROJECT} STATIC "${RBP_SRCS};${RBP_HEADERS}")
-    target_link_libraries(${DST_PROJ} ${RBP_PROJECT})
+    message("RBP_DIR ${RBP_DIR}")
+    target_link_libraries(${DST_PROJ} PUBLIC ${RBP_PROJECT})
     target_include_directories(${DST_PROJ} PUBLIC ${RBP_DIR})
     message("${DST_PROJ} - RectangleBinPack (${RBP_ALG_TYPE}) linked")
 endmacro()
@@ -53,7 +54,7 @@ macro(link_opencv DST_PROJ)
     set(OPENCV_LIB_DEBUG "${OPENCV_LIB_DIR}/opencv_world412d.lib")
     
     include_directories(${DST_PROJ} ${OPENCV_INCLUDE})
-    target_link_libraries(${DST_PROJ}
+    target_link_libraries(${DST_PROJ} PUBLIC
         optimized ${OPENCV_LIB_OPTIMIZED}
         debug ${OPENCV_LIB_DEBUG}
         )
@@ -65,10 +66,78 @@ endmacro()
 ######################################################
 
 ######################################################
-## main project
-FILE(GLOB MAIN_SRCS ${SRC_DIR}/*.cpp ${SRC_DIR}/*.h)
-add_executable(${PROJECT_TITLE} ${MAIN_SRCS})
-link_RectangleBinPack(${PROJECT_TITLE})
-link_opencv(${PROJECT_TITLE})
+## main project type
+
+macro(simple_main)
+    FILE(GLOB MAIN_SRCS ${SRC_DIR}/*.cpp ${SRC_DIR}/*.h)
+    add_executable(${PROJECT_TITLE} ${MAIN_SRCS})
+    link_RectangleBinPack(${PROJECT_TITLE})
+    link_opencv(${PROJECT_TITLE})
+endmacro(simple_main)
+
+macro(qt_main QT_MODULE_STRING)
+
+    set(QT5_VERSION "5.12.5")
+    set(QT5_CMAKE_PATH C:/Qt/${QT5_VERSION}/msvc2017_64/lib/cmake)
+    set(QT5_MODUL_PATH ${QT5_CMAKE_PATH})
+    set(Qt5_DIR "${QT5_MODUL_PATH}/Qt5")
+
+    FILE(GLOB project_headers "${SRC_DIR}/*.h" "${SRC_DIR}/*.hpp")
+    FILE(GLOB project_srcs "${SRC_DIR}/*.c" "${SRC_DIR}/*.cpp")
+
+    string(REPLACE " " ";" QT_MODULE_LIST ${QT_MODULE_STRING})
+    find_package(Qt5 REQUIRED COMPONENTS ${QT_MODULE_LIST})
+
+    qt5_wrap_cpp(project_sources_moc ${project_headers})
+
+    add_executable(${PROJECT_TITLE} 
+        ${project_headers}
+        ${project_srcs}
+        ${project_sources_moc}
+        )
+
+    set(MODS "")
+    foreach(MOD ${QT_MODULE_LIST})
+        set(MODS "${MODS};Qt5::${MOD}")
+    endforeach()
+    message("MODS ${MODS}")
+    target_link_libraries(${PROJECT_TITLE} PUBLIC ${MODS})    
+
+    message("Qt5 Project : ${PROJECT_TITLE} added")
+
+    link_RectangleBinPack(${PROJECT_TITLE})
+    link_opencv(${PROJECT_TITLE})
+
+endmacro(qt_main)
+
+macro(link_qt DST_PROJ MODULE_STRING)
+
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTORCC ON)
+    set(CMAKE_AUTOUIC ON)
+
+    #set basic infos
+    set(QT5_VERSION "5.12.5")
+    set(QT5_CMAKE_PATH C:/Qt/${QT5_VERSION}/msvc2017_64/lib/cmake)
+    set(QT5_MODUL_PATH ${QT5_CMAKE_PATH})
+    set(Qt5_DIR "${QT5_MODUL_PATH}/Qt5")
+
+    string(REPLACE " " ";" MODULE_LIST ${MODULE_STRING})
+    find_package(Qt5 REQUIRED COMPONENTS ${MODULE_LIST})
+    
+    set(MODS "")
+    foreach(MOD ${MODULE_LIST})
+        set(MODS "${MODS};Qt5::${MOD}")
+    endforeach()
+    message("MODS ${MODS}")
+    target_link_libraries(${DST_PROJ} PUBLIC ${MODS})
+
+endmacro()
+
 ## !main project
 ######################################################
+
+#simple_main()
+#link_qt(${PROJECT_TITLE} "Core Widgets Gui")
+
+qt_main("Core Widgets Gui")

@@ -2,7 +2,14 @@
 #include <algorithm>
 #include "GuillotineBinPack.h"
 #include "opencv2/highgui.hpp"
-#include "main.h"
+
+#include <QWidget>
+#include "qapplication.h"
+#include "qlabel.h"
+
+#include <iostream>
+
+#include "SomeWindow.h"
 
 struct Image
 {
@@ -124,8 +131,15 @@ cv::Mat makeFinalImg(int wid, int hi, std::vector<Image> const& images, std::vec
 
 //void updateImages()
 
-int main(void)
+int main(int argc, char* argv[])
 {
+	QApplication app(argc, argv);
+	auto* window = new SomeWindow;
+	std::cout << "sizeof int* : " << sizeof(int*);
+
+	emit window->speak();
+	return 0;
+#if 0
 	std::vector<Image> images;
 	loadImages(images, 1, 8);
 	std::sort(images.begin(), images.end(), [](const Image& lhs, const Image& rhs)
@@ -144,7 +158,13 @@ int main(void)
 	auto resultImg = makeFinalImg(dstWid, dstHi, images, results);
 	cv::imshow("Result", resultImg);
 
-	cv::waitKey(0);
-
-	return 0;
+	QApplication app(argc, argv);
+	
+	auto* window = new QMainWindow;
+	auto* mainWidget = new QWidget(window);
+	auto* label = new QLabel("label", mainWidget);
+	window->setCentralWidget(mainWidget);
+	window->show();
+	return app.exec();
+#endif
 }
