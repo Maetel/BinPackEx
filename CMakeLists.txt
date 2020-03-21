@@ -4,7 +4,12 @@
 ##  * E-mail : iamjam4944@gmail.com                 ##
 ######################################################
 
+#prerequisites
 cmake_minimum_required(VERSION 3.0)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 set(PROJECT_TITLE "BinPackEx" CACHE STRING "Project Title")
 project(${PROJECT_TITLE})
 set(CUR_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -105,8 +110,8 @@ macro(qt_main QT_MODULE_STRING)
 
     message("Qt5 Project : ${PROJECT_TITLE} added")
 
-    link_RectangleBinPack(${PROJECT_TITLE})
-    link_opencv(${PROJECT_TITLE})
+    #link_RectangleBinPack(${PROJECT_TITLE})
+    #link_opencv(${PROJECT_TITLE})
 
 endmacro(qt_main)
 
@@ -134,6 +139,14 @@ macro(link_qt DST_PROJ MODULE_STRING)
 
 endmacro()
 
+macro(link_eigen)
+    #Eigen
+    set(EIGEN_VERSION "3.3.7")
+    set(EIGEN_SRC "${3RD_PARTY}/eigen/${EIGEN_VERSION}")
+    include_directories(${PROJECT_TITLE} "${EIGEN_SRC}")
+endmacro()
+
+
 ## !main project
 ######################################################
 
@@ -141,3 +154,4 @@ endmacro()
 #link_qt(${PROJECT_TITLE} "Core Widgets Gui")
 
 qt_main("Core Widgets Gui")
+link_eigen()
