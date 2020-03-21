@@ -62,7 +62,7 @@ public:
 
 			for (auto const& img : images)
 			{
-				std::cout << "Is this image gray type ? : " << img->isGrayType() << std::endl;
+				qDebug() << "Is this image gray type ? : " << img->isGrayType();
 			}
 		}
 		
