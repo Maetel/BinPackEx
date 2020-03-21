@@ -1,3 +1,5 @@
+// CanvasTestWindow.h
+#pragma once
 
 #include "TestRenderArea.h"
 

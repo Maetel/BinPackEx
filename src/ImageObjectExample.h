@@ -1,4 +1,5 @@
 // ImageObjectExample.h
+#pragma once
 
 #include "ImageObject.h"
 #include <QDebug>

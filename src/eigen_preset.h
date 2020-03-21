@@ -1,5 +1,5 @@
 // eigen_preset.h
-
+#pragma once
 #include <Eigen/Dense>
 
 #define DefMatrix(num, postfix) using Matrix##num##postfix = Eigen::Matrix##num##postfix
