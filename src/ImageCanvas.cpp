@@ -36,13 +36,14 @@ QSize ImageCanvas::sizeHint() const
 
 void ImageCanvas::setImage(QImage const& image)
 {
-	pImpl->m_image = image;
+	pImpl->m_image = image.copy();
 	update();
 }
 
 void ImageCanvas::paintEvent(QPaintEvent* event)
 {
-	auto& image = pImpl->m_image;
+	QImage image = pImpl->m_image.copy();
+	
 	const QSize curSize(image.width(), image.height());
 	if (curSize != pImpl->m_prevSize)
 	{
@@ -52,5 +53,10 @@ void ImageCanvas::paintEvent(QPaintEvent* event)
 	
 	QPainter painter(this);
 	//painter.setBrush(QBrush(image));
-	painter.drawImage(QRect(QPoint(0,0),curSize),image);
+
+	if (!image.isNull())
+	{
+		painter.drawImage(QRect(QPoint(0, 0), curSize), image);
+	}
+	
 }

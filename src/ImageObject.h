@@ -283,6 +283,45 @@ public:
 		return retval;
 	}
 
+	bool drawSubImage(ImageData<T> const& input, int x, int y, bool rotate90 = false)
+	{
+		const int wid = this->width(), hi = this->height();
+		const int in_wid = rotate90 ? input.height() : input.width();
+		const int in_hi = rotate90 ? input.width() : input.height();
+
+		if (x + in_wid >= wid || y + in_hi >= hi)
+			return false;
+
+#if 1
+		for(int i = 0; i < input.width(); ++i)
+			for (int j = 0; j < input.height(); ++j)
+			{
+				this->at(
+					rotate90 ? (x + in_wid - 1 - j) : (x + i),
+					rotate90 ? (y + i) : (y + j)
+				) = input(i,j);
+			}
+#else
+		if (rotate90)
+		{
+			input.for_each_px(false, [=](int i, int j, auto const& val)
+				{
+					this->at(x + in_wid - 1 - j, y + i) = val;
+				});
+		}
+		else
+		{
+			input.for_each_px(false, [=](int i, int j, auto const& val)
+				{
+					this->at(x + i, y + j) = val;
+				});
+		}
+#endif
+		
+		
+		return true;
+	}
+
 protected:
 	void _Delete()
 	{

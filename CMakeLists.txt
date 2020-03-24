@@ -155,3 +155,4 @@ endmacro()
 
 qt_main("Core Widgets Gui")
 link_eigen()
+link_RectangleBinPack(${PROJECT_TITLE})
