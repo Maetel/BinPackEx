@@ -21,6 +21,32 @@ public:
 		return binPacker && !binImages.empty();
 	}
 
+	BinImages& images() { return binImages; }
+	BinImages const& images() const { return binImages; }
+	BinImagePtr& imageAt(int index)
+	{
+		if (index >= imageCount())
+			return BinImagePtr();
+		return binImages.at(index);
+	}
+	BinImagePtr const& imageAt(int index) const
+	{
+		if (index >= imageCount())
+			return BinImagePtr();
+		return binImages.at(index);
+	}
+
+	std::vector<Karlsun> karlsuns() const
+	{
+		std::vector<Karlsun> retval;
+
+		for (auto img : binImages)
+			if (auto k = img->karlsun; k.isUsable())
+				retval.push_back(k);
+		
+		return retval;
+	}
+
 	BinImageManager(BinPackAlgorithm algorithm = Guillotine)
 	{
 		createBinPacker(algorithm);
@@ -41,9 +67,9 @@ public:
 		}
 	}
 
-	ImageDataRGBPtr makeFinalImage(int dst_wid, int dst_hi)
+	ImageDataRGBPtr makeFinalImage(int dst_wid, int dst_hi, VectorRGB background = VectorRGB::Constant(3, 1, 255))
 	{
-		auto retval = std::make_shared<ImageDataRGB>(dst_wid, dst_hi);
+		auto retval = std::make_shared<ImageDataRGB>(dst_wid, dst_hi, background);
 		for (auto binImg : binImages)
 		{
 			auto img = binImg->imagePtr;
@@ -104,6 +130,28 @@ public:
 
 		binImages.erase(binImages.begin() + index);
 
+		return true;
+	}
+
+	bool removeBinImage(std::vector<int> indices)
+	{
+		for (auto index : indices)
+		{
+			if (index >= imageCount() || index < 0)
+				return false;
+		}
+		
+		//sort downwards
+		std::sort(indices.begin(), indices.end(), [](auto const& lhs, auto const& rhs) 
+			{
+				return lhs > rhs;
+			});
+
+		//remove from large number to small one
+		for (auto index : indices)
+		{
+			binImages.erase(binImages.begin() + index);
+		}
 		return true;
 	}
 

@@ -73,6 +73,12 @@ public:
 		if (data)
 			memcpy(m_data, data, dataSize());
 	}
+	ImageData(int width, int height, T value)
+	{
+		clear();
+		_alloc(width, height);
+		this->fill(value);
+	}
 	ImageData(ImageData const& rhs)
 	{
 		*this = rhs;

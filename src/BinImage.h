@@ -2,6 +2,7 @@
 
 #include <QRect>
 #include "ImageObject.h"
+#include "Karlsun.h"
 
 class BinImage
 {
@@ -10,9 +11,8 @@ public:
 	int imageIndex = -1; // Zero base index
 	bool isFlipped = false;
 
-	int offset = -1;
 	QRect result; //rbp °á°ú
-	QRect karlsun; //Ä®¼±
+	Karlsun karlsun; //Ä®¼±
 
 	//metadata
 	QString path;
@@ -27,12 +27,22 @@ public:
 	~BinImage() {}
 
 public:
-	void updateKarlsun(int offset)
+	void updateKarlsun(int offset, int roundPx = 0, QColor drawColor = Qt::red)
 	{
-		if (offset <= 0)
+		if (offset <= 0 || roundPx < 0)
 			return;
-		this->offset = offset;
-		karlsun = QRect{ result.x() + offset, result.y() + offset, result.width() - 2 * offset, result.height() - 2 * offset };
+		
+		karlsun = Karlsun(
+			QRect{
+				result.x() + offset,
+				result.y() + offset,
+				result.width() - 2 * offset,
+				result.height() - 2 * offset
+			},
+			offset,
+			roundPx,
+			drawColor
+		);
 	}
 };
 using BinImagePtr = std::shared_ptr<BinImage>;
