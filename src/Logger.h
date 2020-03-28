@@ -8,6 +8,19 @@
 
 static QTextEdit* g_logEdit = 0;
 
+class LogWindow : public QMainWindow
+{
+public:
+	LogWindow(QTextEdit* logger, QMainWindow* parent = 0) : QMainWindow(parent)
+	{
+		this->setCentralWidget(logger);
+	}
+	QSize sizeHint() const override
+	{
+		return QSize(1600, 400);
+	}
+};
+
 static
 void Binpacklog(QtMsgType type, const QMessageLogContext& context, const QString& msg)
 {

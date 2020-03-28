@@ -20,7 +20,8 @@
 #include <QLineEdit>
 #include <QLabel>
 
-//drag and drops
+//events
+#include <QFileDialog>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
@@ -37,7 +38,7 @@ public:
 	PImpl(BinpackMainWindow* owner)
 		: Owner(owner) 
 	{
-		finalImage = std::make_shared<ImageDataRGB>(800, 600, RGB_WHITE);
+		//finalImage = std::make_shared<ImageDataRGB>(800, 600, RGB_WHITE);
 	}
 	~PImpl() {}
 
@@ -95,6 +96,7 @@ public:
 		qDebug() << "Canvas reset";
 		imageManager.clear();
 		Owner->m_canvas->resetCanvas();
+		finalImage = 0;
 		updateCanvas();
 		updateInfoToolbar();
 	}
@@ -147,6 +149,7 @@ public:
 		updateBinImage(fileList);
 		if (tryBinPack())
 		{
+			// TODO : remember last state and restore if fails
 		}
 		updateCanvas();
 		updateInfoToolbar();
@@ -242,11 +245,13 @@ public:
 
 	void setCanvasSize(QSize size)
 	{
+		resetCanvas();
+
 		qDebug() << "Canvas size set to " << size;
 		canvasSize = size;
 
-		if(tryBinPack())
-			updateCanvas();
+		//if(tryBinPack())
+		//	updateCanvas();
 		updateInfoToolbar();
 	}
 
@@ -257,19 +262,6 @@ public:
 
 		//handle logger
 		qInstallMessageHandler(Binpacklog);
-
-		class LogWindow : public QMainWindow
-		{
-		public:
-			LogWindow(QTextEdit* logger, QMainWindow* parent = 0) : QMainWindow(parent)
-			{
-				this->setCentralWidget(logger);
-			}
-			QSize sizeHint() const override
-			{
-				return QSize(1400, 400);
-			}
-		};
 		qDebug() << "[Dev mode start] Logger created";
 		LogWindow* logger = new LogWindow(g_logEdit, Owner);
 		logger->show();
@@ -278,6 +270,7 @@ public:
 	struct ControlToolbar
 	{
 		QToolBar* controlToolbar = 0;
+		QAction* saveImageAct = 0;
 		QAction* showImgAct = 0;
 		QAction* showKsAct = 0;
 		QAction* keepPrevAct = 0;
@@ -292,6 +285,10 @@ public:
 		auto& ca = controlToolbar;
 
 		ca.controlToolbar = new QToolBar(Owner);
+
+		ca.saveImageAct = new QAction("Save result image");
+		util::actionPreset(ca.saveImageAct, true, false, false);
+		ca.controlToolbar->addAction(ca.saveImageAct);
 
 		ca.showImgAct = new QAction("Show image");
 		util::actionPreset(ca.showImgAct, true, true, true);
@@ -327,6 +324,21 @@ public:
 		QLabel* itemCountLabel = 0;
 	};
 	InfoToolbar infoToolbar;
+
+	void saveResultImage()
+	{
+		if (!finalImage)
+		{
+			Notify("Save image", "No image to save!");
+			return;
+		}
+
+		const auto f = QFileDialog::getSaveFileName(Owner, "Save image", "", "Jpg image (*.jpg)");
+		if (f.isEmpty())
+			return;
+
+		finalImage->save(f);
+	}
 
 	void createInfoToolbar()
 	{
@@ -392,6 +404,7 @@ public:
 	{
 		// control toolbar
 		auto& ct = controlToolbar;
+		connect(ct.saveImageAct, &QAction::triggered, [=](bool c)	{ this->saveResultImage(); });
 		connect(ct.showImgAct, &QAction::triggered, [=](bool c)		{ Owner->showImage(c); });
 		connect(ct.showKsAct, &QAction::triggered, [=](bool c)		{ Owner->showKarlsun(c); });
 		connect(ct.keepPrevAct, &QAction::triggered, [=](bool c)	{ this->keepPreviousImage = c; });
