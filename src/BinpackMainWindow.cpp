@@ -64,8 +64,8 @@ public:
 	void Notify(QString title, QString msg)
 	{
 		QMessageBox msgBox;
-		msgBox.setText(title);
-		msgBox.setInformativeText(msg);
+		msgBox.setWindowTitle(title);
+		msgBox.setText(msg);
 		int ret = msgBox.exec();
 	}
 
@@ -221,9 +221,25 @@ public:
 	{
 		qDebug() << "Popping canvas resizer";
 		static SizeReceiver* receiver = 0;
-		if (receiver)
-			util::HandyDelete(receiver);
+		util::HandyDelete(receiver);
 		receiver = new SizeReceiver(Owner);
+		receiver->show();
+	}
+
+	void popImageRemover()
+	{
+		qDebug() << "Popping image remover";
+
+		const int imageCount = imageManager.imageCount();
+		if (!imageCount)
+		{
+			Notify("Remove image", "No images to remove");
+			return;
+		}
+
+		static RemoveIndexReceiver* receiver = 0;
+		util::HandyDelete(receiver);
+		receiver = new RemoveIndexReceiver(Owner, imageCount);
 		receiver->show();
 	}
 
@@ -235,6 +251,7 @@ public:
 		if (!mgr.isAble())
 		{
 			Notify(__FUNCTION__, "BinPacking disabled (Image not loaded)");
+			resetCanvas();
 			return false;
 		}
 
@@ -252,6 +269,32 @@ public:
 		}
 
 		return false;
+	}
+
+	void removeImages(std::vector<int> const& indices)
+	{
+		if (imageManager.removeBinImage(indices))
+		{
+			Notify("Remove image", "Image removed");
+			if (imageManager.imageCount())
+			{
+				if (tryBinPack())
+				{
+					// TODO : remember last state and restore if fails
+				}
+				updateCanvas();
+			}
+			else
+			{
+				//no image to draw
+				resetCanvas();
+			}
+			updateInfoToolbar();
+		}
+		else
+		{
+			Notify("Remove image", "Failed to remove images");
+		}
 	}
 
 	void setCanvasSize(QSize size)
@@ -287,7 +330,8 @@ public:
 		QAction* showImgIdxAct = 0;
 		QAction* keepPrevAct = 0;
 		QAction* resetAct = 0;
-		QAction* setResulSizeAct = 0;
+		QAction* canvasResizeAct = 0;
+		QAction* removeImageAct = 0;
 	};
 	ControlToolbar controlToolbar;
 
@@ -322,9 +366,13 @@ public:
 		util::actionPreset(ca.resetAct, true, false, false);
 		ca.controlToolbar->addAction(ca.resetAct);
 
-		ca.setResulSizeAct = new QAction("Set size");
-		util::actionPreset(ca.setResulSizeAct, true, false, false);
-		ca.controlToolbar->addAction(ca.setResulSizeAct);
+		ca.canvasResizeAct = new QAction("Set size");
+		util::actionPreset(ca.canvasResizeAct, true, false, false);
+		ca.controlToolbar->addAction(ca.canvasResizeAct);
+
+		ca.removeImageAct = new QAction("Remove images");
+		util::actionPreset(ca.removeImageAct, true, false, false);
+		ca.controlToolbar->addAction(ca.removeImageAct);
 
 		Owner->addToolBar(ControlToolbarArea, ca.controlToolbar);
 	}
@@ -426,7 +474,8 @@ public:
 		connect(ct.showImgIdxAct, &QAction::triggered, [=](bool c)	{ this->showImageIndex(c); });
 		connect(ct.keepPrevAct, &QAction::triggered, [=](bool c)	{ this->keepPreviousImage = c; });
 		connect(ct.resetAct, &QAction::triggered, [=](bool c)		{ this->askResetCanvas(); });
-		connect(ct.setResulSizeAct, &QAction::triggered, [=](bool c){ this->popCanvasResizer(); });
+		connect(ct.canvasResizeAct, &QAction::triggered, [=](bool c){ this->popCanvasResizer(); });
+		connect(ct.removeImageAct, &QAction::triggered, [=](bool c){ this->popImageRemover(); });
 		//
 	}
 
@@ -489,4 +538,18 @@ void BinpackMainWindow::setCanvasSize(QSize size)
 	// check pImpl->popCanvasResizer()
 	qDebug() << "Size set from SizeReceiver, size : " << size;
 	pImpl->setCanvasSize(size);
+}
+void BinpackMainWindow::setRemoveImages(std::vector<int> const indices)
+{
+	//will be handled by SizeReceiver
+	// check pImpl->popCanvasResizer()
+	qDebug() << "image remove indices from RemoveIndexReceiver, size : " << indices.size();
+
+	if (indices.empty())
+	{
+		pImpl->Notify("Remove image", "No image selected");
+		return;
+	}
+
+	pImpl->removeImages(indices);
 }

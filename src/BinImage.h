@@ -26,6 +26,16 @@ public:
 	}
 	~BinImage() {}
 
+	bool operator==(BinImage const& rhs)
+	{
+		//if not initialized, return false
+		if (imageIndex == -1 || rhs.imageIndex == -1)
+			return false;
+
+		//compare image index only
+		return imageIndex == rhs.imageIndex;
+	}
+
 public:
 	void updateKarlsun(int offset, int roundPx = 0, QColor drawColor = Qt::red)
 	{

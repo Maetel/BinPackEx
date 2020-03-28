@@ -21,6 +21,7 @@ public:
 
 public slots:
 	void setCanvasSize(QSize resultSize);
+	void setRemoveImages(std::vector<int> const indicesToRemove);
 
 protected:
 	class PImpl;

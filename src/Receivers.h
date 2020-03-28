@@ -21,3 +21,22 @@ private:
 	class PImpl;
 	PImpl* pImpl;
 };
+
+// takes width/height and returns
+// calls : BinpackMainWindow::setResultSize
+class RemoveIndexReceiver : public QMainWindow
+{
+	Q_OBJECT
+public:
+	RemoveIndexReceiver(BinpackMainWindow* owner, int imageCount);
+	~RemoveIndexReceiver();
+
+protected:
+	void popup();
+protected slots:
+	void updateValue();
+
+private:
+	class PImpl;
+	PImpl* pImpl;
+};

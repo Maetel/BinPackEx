@@ -44,13 +44,21 @@ public:
 	{
 		if (index >= imageCount())
 			return BinImagePtr();
-		return binImages.at(index);
+		for (auto& ptr : binImages)
+			if (ptr->imageIndex == index)
+				return ptr;
+
+		return BinImagePtr() = 0;
 	}
 	BinImagePtr const& imageAt(int index) const
 	{
 		if (index >= imageCount())
 			return BinImagePtr();
-		return binImages.at(index);
+		for (auto ptr : binImages)
+			if (ptr->imageIndex == index)
+				return ptr;
+
+		return 0;
 	}
 
 	std::vector<Karlsun> karlsuns() const
@@ -152,36 +160,57 @@ public:
 		return true;
 	}
 
+	void updateIndices()
+	{
+		for (int idx = 0; idx < imageCount(); ++idx)
+			binImages.at(idx)->imageIndex = idx;
+	}
+
 	//returns true if successfully removed
 	bool removeBinImage(int index)
 	{
 		if (index >= imageCount() || index < 0)
 			return false;
 
-		binImages.erase(binImages.begin() + index);
+		int startPos = 0;
+		for (auto it = binImages.begin(); it != binImages.end(); ++it)
+		{
+			if (**it == *imageAt(index))
+			{
+				binImages.erase(binImages.begin() + startPos);
+				updateIndices();
+				return true;
+			}
+			startPos++;
+		}
 
-		return true;
+		return false;
 	}
 
 	bool removeBinImage(std::vector<int> indices)
 	{
-		for (auto index : indices)
-		{
-			if (index >= imageCount() || index < 0)
-				return false;
-		}
-		
+		if (indices.empty())
+			return false;
+
 		//sort downwards
-		std::sort(indices.begin(), indices.end(), [](auto const& lhs, auto const& rhs) 
+		std::sort(indices.begin(), indices.end(), [](auto const& lhs, auto const& rhs)
 			{
 				return lhs > rhs;
 			});
 
+		//index larger than image count
+		if (*(indices.begin()) >= imageCount())
+			return false;
+
 		//remove from large number to small one
 		for (auto index : indices)
 		{
-			binImages.erase(binImages.begin() + index);
+			const bool suc = removeBinImage(index);
+			if (!suc)
+				return false;
 		}
+			
+		
 		return true;
 	}
 
