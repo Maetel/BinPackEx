@@ -20,8 +20,6 @@ public:
 	virtual void dropEvent(QDropEvent* event) override;
 
 public slots:
-	void showImage(bool checked);
-	void showKarlsun(bool checked);
 	void setCanvasSize(QSize resultSize);
 
 protected:

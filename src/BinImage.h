@@ -33,6 +33,7 @@ public:
 			return;
 		
 		karlsun = Karlsun(
+			this->imageIndex,
 			QRect{
 				result.x() + offset,
 				result.y() + offset,

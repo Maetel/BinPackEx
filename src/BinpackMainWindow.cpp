@@ -124,6 +124,17 @@ public:
 		updateCanvas();
 	}
 
+	
+	void showImageIndex(bool checked)
+	{
+		qDebug() << "show image index : " << checked;
+		if (checked)
+			Owner->m_canvas->showObejct(ImageCanvas::IndexStringObj);
+		else
+			Owner->m_canvas->hideObejct(ImageCanvas::IndexStringObj);
+		updateCanvas();
+	}
+
 	void showKarlsun(bool checked)
 	{
 		qDebug() << "show Karlsun : " << checked;
@@ -273,6 +284,7 @@ public:
 		QAction* saveImageAct = 0;
 		QAction* showImgAct = 0;
 		QAction* showKsAct = 0;
+		QAction* showImgIdxAct = 0;
 		QAction* keepPrevAct = 0;
 		QAction* resetAct = 0;
 		QAction* setResulSizeAct = 0;
@@ -290,13 +302,17 @@ public:
 		util::actionPreset(ca.saveImageAct, true, false, false);
 		ca.controlToolbar->addAction(ca.saveImageAct);
 
-		ca.showImgAct = new QAction("Show image");
+		ca.showImgAct = new QAction("View image");
 		util::actionPreset(ca.showImgAct, true, true, true);
 		ca.controlToolbar->addAction(ca.showImgAct);
 
-		ca.showKsAct = new QAction("Show karlsun");
+		ca.showKsAct = new QAction("View karlsun");
 		util::actionPreset(ca.showKsAct, true, true, true);
 		ca.controlToolbar->addAction(ca.showKsAct);
+
+		ca.showImgIdxAct = new QAction("View index");
+		util::actionPreset(ca.showImgIdxAct, true, true, true);
+		ca.controlToolbar->addAction(ca.showImgIdxAct);
 
 		ca.keepPrevAct = new QAction("Keep previous images");
 		util::actionPreset(ca.keepPrevAct, true, true, keepPreviousImage);
@@ -405,8 +421,9 @@ public:
 		// control toolbar
 		auto& ct = controlToolbar;
 		connect(ct.saveImageAct, &QAction::triggered, [=](bool c)	{ this->saveResultImage(); });
-		connect(ct.showImgAct, &QAction::triggered, [=](bool c)		{ Owner->showImage(c); });
-		connect(ct.showKsAct, &QAction::triggered, [=](bool c)		{ Owner->showKarlsun(c); });
+		connect(ct.showImgAct, &QAction::triggered, [=](bool c)		{ this->showImage(c); });
+		connect(ct.showKsAct, &QAction::triggered, [=](bool c)		{ this->showKarlsun(c); });
+		connect(ct.showImgIdxAct, &QAction::triggered, [=](bool c)	{ this->showImageIndex(c); });
 		connect(ct.keepPrevAct, &QAction::triggered, [=](bool c)	{ this->keepPreviousImage = c; });
 		connect(ct.resetAct, &QAction::triggered, [=](bool c)		{ this->askResetCanvas(); });
 		connect(ct.setResulSizeAct, &QAction::triggered, [=](bool c){ this->popCanvasResizer(); });
@@ -446,15 +463,6 @@ QSize BinpackMainWindow::minimumSizeHint() const
 QSize BinpackMainWindow::sizeHint() const
 {
 	return QSize(1024, 800);
-}
-
-void BinpackMainWindow::showImage(bool checked)
-{
-	pImpl->showImage(checked);
-}
-void BinpackMainWindow::showKarlsun(bool checked)
-{
-	pImpl->showKarlsun(checked);
 }
 
 void BinpackMainWindow::dragEnterEvent(QDragEnterEvent* event)

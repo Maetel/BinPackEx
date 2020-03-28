@@ -13,7 +13,8 @@ public:
 	enum CanvasObjectType {
 		ImageObj = 1,
 		KarlsunObj = 2,
-		ALL = ImageObj | KarlsunObj,
+		IndexStringObj = 4,
+		ALL = ImageObj | KarlsunObj | IndexStringObj,
 	};
 
 public:	

@@ -1,6 +1,7 @@
 #include "ImageCanvas.h"
 #include <QPainter>
 #include <QRectF>
+#include <QTextItem>
 
 class ImageCanvas::Internal
 {
@@ -25,6 +26,7 @@ public:
 
 	bool showImage() const { return m_showWhat & ImageCanvas::ImageObj; }
 	bool showKarlsun() const { return m_showWhat & ImageCanvas::KarlsunObj; }
+	bool showIndex() const { return m_showWhat & ImageCanvas::IndexStringObj; }
 	
 	const int minWid, minHi;
 
@@ -133,12 +135,25 @@ void ImageCanvas::paintEvent(QPaintEvent* event)
 	{
 		for (auto const& karlsun : rects)
 		{
-			QRect rect = karlsun.rect;
+			//TODO : apply color
+			const QRect rect = karlsun.rect;
 			QBrush rectBrush;
 			rectBrush.setColor(karlsun.style.color);
 			painter.setBrush(rectBrush);
 			painter.drawRoundedRect(rect, karlsun.style.roundPixel, karlsun.style.roundPixel);
 		}
+	}
+
+	if (!rects.empty() && pImpl->showIndex())
+	{
+		//set overall text properties;
+		QFont font;
+		font.setPointSize(30);
+		painter.setFont(font);
+		painter.setPen(Qt::red);
+
+		for (auto const& karlsun : rects)
+			painter.drawText(karlsun.rect.topLeft() + QPoint(10, 50), QString::number(karlsun.imageIndex));
 	}
 
 	//painter.drawRoundedRect

@@ -36,6 +36,7 @@ struct Karlsun
 	//accessable variables
 	QRect rect;
 	KarlsunStyle style;
+	int imageIndex = -1;
 
 	Karlsun() = default;
 	Karlsun(Karlsun const&) = default;
@@ -50,33 +51,37 @@ struct Karlsun
 			;
 	}
 
-	Karlsun(QRect karlsun, KarlsunStyle karlsunStyle)
+	Karlsun(int imgIndex, QRect karlsun, KarlsunStyle karlsunStyle)
 		: rect(karlsun)
+		, imageIndex(imgIndex)
 		, style(karlsunStyle)
 	{
 	}
 
-	Karlsun(QRect karlsun, int boundaryOffset, int roundPx = 0, QColor drawColor = Qt::red)
+	Karlsun(int imgIndex, QRect karlsun, int boundaryOffset, int roundPx = 0, QColor drawColor = Qt::red)
 		: rect(karlsun)
+		, imageIndex(imgIndex)
 		, style({boundaryOffset, roundPx, drawColor})
 	{
 	}
 	
-	void set(QRect karlsun, int boundaryOffset, int roundPx = 0, QColor drawColor = Qt::red)
+	void set(int imgIndex, QRect karlsun, int boundaryOffset, int roundPx = 0, QColor drawColor = Qt::red)
 	{
+		imageIndex = imgIndex;
 		rect = karlsun;
 		style = KarlsunStyle{ boundaryOffset, roundPx, drawColor };
 	}
 
-	void set(QRect karlsun, KarlsunStyle karlsunStyle)
+	void set(int imgIndex, QRect karlsun, KarlsunStyle karlsunStyle)
 	{
+		imageIndex = imgIndex;
 		rect = karlsun;
 		style = karlsunStyle;
 	}
 
 	bool isUsable() const
 	{
-		return (!rect.isEmpty() && style.isUsable());
+		return (!rect.isEmpty() && imageIndex != -1 && style.isUsable());
 	}
 };
 
