@@ -157,10 +157,12 @@ public:
 
 	void handleDropEvent(QList<QUrl> const& fileList)
 	{
+		imageManager.storeCurState();
 		updateBinImage(fileList);
-		if (tryBinPack())
+		if (!tryBinPack())
 		{
 			// TODO : remember last state and restore if fails
+			imageManager.restoreLastState();
 		}
 		updateCanvas();
 		updateInfoToolbar();
@@ -273,14 +275,15 @@ public:
 
 	void removeImages(std::vector<int> const& indices)
 	{
+		imageManager.storeCurState();
 		if (imageManager.removeBinImage(indices))
 		{
 			Notify("Remove image", "Image removed");
 			if (imageManager.imageCount())
 			{
-				if (tryBinPack())
+				if (!tryBinPack())
 				{
-					// TODO : remember last state and restore if fails
+					imageManager.restoreLastState();
 				}
 				updateCanvas();
 			}

@@ -16,7 +16,18 @@ public:
 	BinImages binImages;
 	QSize resultSize{ -1,-1 };
 
+	BinImages lastState;
 public:
+
+	void storeCurState()
+	{
+		lastState = binImages;
+	}
+
+	void restoreLastState()
+	{
+		binImages = lastState;
+	}
 
 	void setResultSize(QSize size)
 	{
