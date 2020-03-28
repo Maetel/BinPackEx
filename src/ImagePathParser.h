@@ -28,7 +28,7 @@ public:
 			supportedFormats.push_back(".png");
 	}
 
-	bool isSupportedFormat(QString path)
+	bool isSupportedFormat(QString path) const
 	{
 		for (auto format : supportedFormats)
 		{

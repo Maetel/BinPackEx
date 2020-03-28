@@ -11,10 +11,12 @@ int main(int argc, char* argv[])
 		ImageObjectExample ex;
 
 	QApplication app(argc, argv);
-	QMainWindow* mainWindow =
-		//new CanvasTestWindow
-		new BinpackMainWindow
-		;
+
+	//if isDevMode, shows log window
+	const bool isDevMode = app.arguments().contains("--diag", Qt::CaseInsensitive);
+
+
+	QMainWindow* mainWindow = new BinpackMainWindow(isDevMode);
 	mainWindow->show();
 
 	return app.exec();

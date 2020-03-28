@@ -6,7 +6,8 @@
 #include <QString>
 #include "eigen_preset.h"
 
-
+#define RGB_WHITE VectorRGB::Constant(3, 1, 255)
+#define RGB_BLACK VectorRGB::Constant(3, 1, 0)
 
 
 class ImageObject
@@ -159,7 +160,7 @@ public:
 		{
 			//buf = buf.convertToFormat(this_form);
 
-			const int wid = buf.width(), hi = buf.height();
+			const size_t wid = buf.width(), hi = buf.height();
 			std::vector<T> dataBuf(wid * hi);
 
 			for (int y = 0; y < hi; ++y)

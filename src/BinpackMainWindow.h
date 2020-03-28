@@ -7,7 +7,7 @@ class BinpackMainWindow : public QMainWindow
 {
 	Q_OBJECT
 public:
-	BinpackMainWindow();
+	BinpackMainWindow(bool isDevMode = false);
 	~BinpackMainWindow();
 
 	QSize minimumSizeHint() const override;
@@ -20,9 +20,9 @@ public:
 	virtual void dropEvent(QDropEvent* event) override;
 
 public slots:
-	void handleKarlsun();
 	void showImage(bool checked);
 	void showKarlsun(bool checked);
+	void setCanvasSize(QSize resultSize);
 
 protected:
 	class PImpl;

@@ -7,7 +7,11 @@ class ImageCanvas::Internal
 public:
 	ImageCanvas* Owner = 0;
 
-	Internal(ImageCanvas* owner) : Owner(owner) {}
+	Internal(ImageCanvas* owner)
+		: Owner(owner)
+		, minWid(Owner->minimumSizeHint().width())
+		, minHi(Owner->minimumSizeHint().height())
+	{}
 	~Internal() {}
 
 public:
@@ -19,8 +23,31 @@ public:
 	QImage m_image;
 	QSize m_prevSize = QSize(0, 0);
 
-	bool showImage() { return m_showWhat & ImageCanvas::ImageObj; }
-	bool showKarlsun() { return m_showWhat & ImageCanvas::KarlsunObj; }
+	bool showImage() const { return m_showWhat & ImageCanvas::ImageObj; }
+	bool showKarlsun() const { return m_showWhat & ImageCanvas::KarlsunObj; }
+	
+	const int minWid, minHi;
+
+	QSize chooseCanvasSize()
+	{
+		QSize retval = m_prevSize;
+
+		//update if different
+		if (const auto curSize = m_image.size(); m_prevSize != curSize)
+			retval = curSize;
+
+		//check min
+		{
+			if (retval.width() < minWid)
+				retval.setWidth(minWid);
+			if (retval.height() < minHi)
+				retval.setHeight(minHi);
+		}
+
+		//store last size
+		m_prevSize = retval;
+		return retval;
+	}
 };
 
 
@@ -28,17 +55,16 @@ ImageCanvas::ImageCanvas(QWidget* parent)
 	: QWidget(parent)
 	, pImpl(new Internal(this))
 {
-
 }
 
 QSize ImageCanvas::minimumSizeHint() const
 {
-	return QSize(100, 100);
+	return QSize(640, 480);
 }
 
 QSize ImageCanvas::sizeHint() const
 {
-	return QSize(400, 200);
+	return QSize(640, 480);
 }
 
 void ImageCanvas::resetCanvas()
@@ -81,6 +107,7 @@ void ImageCanvas::setKarlsun(std::vector<Karlsun> const& rects)
 void ImageCanvas::setImage(QImage const& image)
 {
 	pImpl->m_image = image.copy();
+	const QSize szDebug = pImpl->m_image.size();
 	update();
 }
 
@@ -91,13 +118,9 @@ void ImageCanvas::paintEvent(QPaintEvent* event)
 	auto const& rects = pImpl->m_karlsuns;
 	auto const& rectBrush = pImpl->m_KarlsunBrush;
 
-	const QSize curSize(image.width(), image.height());
-	if (curSize != pImpl->m_prevSize)
-	{
-		this->resize(curSize);
-		pImpl->m_prevSize = curSize;
-	}
-	
+	const QSize curSize = pImpl->chooseCanvasSize();
+	this->resize(curSize);
+
 	QPainter painter(this);
 	//painter.setBrush(QBrush(image));
 
@@ -112,9 +135,9 @@ void ImageCanvas::paintEvent(QPaintEvent* event)
 		{
 			QRect rect = karlsun.rect;
 			QBrush rectBrush;
-			rectBrush.setColor(karlsun.color);
+			rectBrush.setColor(karlsun.style.color);
 			painter.setBrush(rectBrush);
-			painter.drawRoundedRect(rect, karlsun.roundPixel, karlsun.roundPixel);
+			painter.drawRoundedRect(rect, karlsun.style.roundPixel, karlsun.style.roundPixel);
 		}
 	}
 

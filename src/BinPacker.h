@@ -14,7 +14,7 @@ using BinPackError = int;
 #define BP_ERR_EXCEED_MAX_IMAGE -2
 #define BP_ERR_EXCEED_AVAILABLE_SPACE -3
 
-static std::vector<const char*> BinPackErrorToString
+const static std::vector<const char*> BinPackErrorToString
 {
 	"BINPACK_NO_ERROR",
 	"BINPACK_ERR_NO_IMAGE",

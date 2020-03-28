@@ -4,6 +4,7 @@
 #include <QFileDialog>
 
 //logging
+#include "Logger.h"
 #include <QDebug>
 #include <QMessageBox>
 
@@ -15,6 +16,9 @@
 #include <QCheckBox>
 #include <QDockWidget>
 #include <QToolBar>
+#include <QValidator>
+#include <QLineEdit>
+#include <QLabel>
 
 //drag and drops
 #include <QDragEnterEvent>
@@ -22,39 +26,55 @@
 #include <QMimeData>
 
 //private classes
+#include "Receivers.h"
 #include "BinImageManager.h"
 #include "Utils.h"
-
-struct KarlsunStyle
-{
-	int imageIndex = -1;
-	int offset = -1;
-	int roundPixel = 0;
-	QColor color = Qt::red;
-};
 
 class BinpackMainWindow::PImpl
 {
 	BinpackMainWindow* Owner = 0;
 public:
-	PImpl(BinpackMainWindow* owner) : Owner(owner) {}
+	PImpl(BinpackMainWindow* owner)
+		: Owner(owner) 
+	{
+		finalImage = std::make_shared<ImageDataRGB>(800, 600, RGB_WHITE);
+	}
 	~PImpl() {}
 
 	ImagePathParser imagePathParser;
 	BinImageManager imageManager;
+	bool keepPreviousImage = false;
+	ImageDataRGBPtr finalImage;
+	QSize canvasSize{ 1600,1000 };
 
-	void Notify(QString msg)
+	template <typename T = void>
+	T Notify(QString title, QString msg) {}
+
+	template <>
+	bool Notify(QString title, QString msg)
+	{
+		return
+			QMessageBox::question(Owner, title, msg, QMessageBox::Yes | QMessageBox::No)
+			== QMessageBox::Yes
+			;
+	}
+
+	template <>
+	void Notify(QString title, QString msg)
 	{
 		QMessageBox msgBox;
-		msgBox.setText("Alert");
+		msgBox.setText(title);
 		msgBox.setInformativeText(msg);
 		int ret = msgBox.exec();
 	}
 
-	void updateBinImage(QList<QUrl> const& fileList, bool keepPrevious = false)
+	void updateBinImage(QList<QUrl> const& fileList)
 	{
-		if(!keepPrevious)
+		if (!keepPreviousImage)
+		{
 			imageManager.clear();
+			resetCanvas();
+		}
 
 		for (auto url : fileList)
 		{
@@ -65,129 +85,340 @@ public:
 		}
 	}
 
+	void updateCanvas()
+	{
+		Owner->m_canvas->update();
+	}
+
 	void resetCanvas()
 	{
+		qDebug() << "Canvas reset";
+		imageManager.clear();
 		Owner->m_canvas->resetCanvas();
+		updateCanvas();
+		updateInfoToolbar();
+	}
+
+	void drawImage()
+	{
+		if (finalImage && !finalImage->empty())
+		{
+			qDebug() << "Drawing image to canvas";
+			QImage copied = finalImage->toQImage().copy();
+			Owner->m_canvas->setImage(std::forward<QImage>(copied));
+			updateCanvas();
+		}
+		else
+		{
+			qWarning() << "Failed to draw image";
+		}
+		
 	}
 
 	void drawKarlsun()
 	{
+		qDebug() << "Drawing karlsun to canvas";
 		Owner->m_canvas->setKarlsun(imageManager.karlsuns());
+		updateCanvas();
 	}
 
 	void showKarlsun(bool checked)
 	{
+		qDebug() << "show Karlsun : " << checked;
 		if (checked)
 			Owner->m_canvas->showObejct(ImageCanvas::KarlsunObj);
 		else
 			Owner->m_canvas->hideObejct(ImageCanvas::KarlsunObj);
+		updateCanvas();
 	}
 
 	void showImage(bool checked)
 	{
+		qDebug() << "show image : " << checked;
 		if (checked)
 			Owner->m_canvas->showObejct(ImageCanvas::ImageObj);
 		else
 			Owner->m_canvas->hideObejct(ImageCanvas::ImageObj);
+		updateCanvas();
 	}
 
-	void updateKarlsun()
+	void handleDropEvent(QList<QUrl> const& fileList)
 	{
-		if (!imageManager.isAble())
-			return;
+		updateBinImage(fileList);
+		if (tryBinPack())
+		{
+		}
+		updateCanvas();
+		updateInfoToolbar();
+	}
 
+	void updateKarlsun(std::vector<KarlsunStyle> styles = std::vector<KarlsunStyle>())
+	{
+		qDebug() << "Updating Karlsun";
+		if (!imageManager.isAble())
+		{
+			qWarning() << "image mgr is not able to update karlsun";
+			return;
+		}
+			
+		// TODO : get style from GUI
 		//preset for debug
+
 		const auto imageCount = imageManager.imageCount();
 		const int offset = 20;
 		const int roundPixel = 10;
 		const QColor color = Qt::red;
-		std::vector<KarlsunStyle> styles;
-		for (int idx = 0; idx < imageCount; ++idx)
-			styles.emplace_back(KarlsunStyle{ idx, offset, roundPixel, color });
-		//!preset for debug
 
+		//while(styles.)
+		if (styles.empty())
+		{
+			for (int idx = 0; idx < imageCount; ++idx)
+				styles.emplace_back(KarlsunStyle{ offset, roundPixel, color });
+		}
 
 		int failureCount = 0;
+		int index = 0;
 		for (auto const& style : styles)
 		{
-			const int index = style.imageIndex;
-			if (auto img = imageManager.imageAt(index))
+			//const int index = style.imageIndex;
+			if (auto img = imageManager.imageAt(index++))
 				img->updateKarlsun(style.offset, style.roundPixel, style.color);
 			else
 				failureCount++;
 		}
 		
 		if (failureCount)
-			Notify(QString("Failed to set %1 styles").arg(failureCount));
+		{
+			qWarning() << QString("Failed to set %1 styles").arg(failureCount);
+		}
 		else
+		{
+			qDebug() << "Succeded to update karlsun.";
 			drawKarlsun();
+		}
+			
 	}
 	void setKarlsunStyle()
 	{
 
 	}
 
-	void tryBinPack()
+	void popCanvasResizer()
+	{
+		qDebug() << "Popping canvas resizer";
+		static SizeReceiver* receiver = 0;
+		if (receiver)
+			util::HandyDelete(receiver);
+		receiver = new SizeReceiver(Owner);
+		receiver->show();
+	}
+
+	bool tryBinPack()
 	{
 		auto& mgr = imageManager;
+		mgr.setResultSize(canvasSize);
+
 		if (!mgr.isAble())
 		{
-			Notify("BinPacking disabled (Image not loaded)");
-			return;
+			Notify(__FUNCTION__, "BinPacking disabled (Image not loaded)");
+			return false;
 		}
 
-		const int dst_wid = 1600, dst_hi = 1000;
-		auto finalImage = mgr.binPack(dst_wid, dst_hi, [=](QString msg) {Notify(msg); });
-		if (!finalImage)
+		if (this->finalImage = mgr.binPack([this](QString msg) {Notify(__FUNCTION__, msg); }))
 		{
-			Notify("Failed bin packing");
-			return;
+			drawImage();
+			updateKarlsun();
+			setKarlsunStyle();
+			return true;
+		}
+		else
+		{
+			Notify(__FUNCTION__, "Failed bin packing");
+			return false;
 		}
 
-		//this->m_canvas->setFixedSize(dst_wid, dst_hi);
-		auto copied = finalImage->toQImage();
-		Owner->m_canvas->setImage(copied.copy());
+		return false;
 	}
+
+	void setCanvasSize(QSize size)
+	{
+		qDebug() << "Canvas size set to " << size;
+		canvasSize = size;
+
+		if(tryBinPack())
+			updateCanvas();
+		updateInfoToolbar();
+	}
+
+	void handleDevmode(bool isDevMode)
+	{
+		if (!isDevMode)
+			return;
+
+		//handle logger
+		qInstallMessageHandler(Binpacklog);
+
+		class LogWindow : public QMainWindow
+		{
+		public:
+			LogWindow(QTextEdit* logger, QMainWindow* parent = 0) : QMainWindow(parent)
+			{
+				this->setCentralWidget(logger);
+			}
+			QSize sizeHint() const override
+			{
+				return QSize(1400, 400);
+			}
+		};
+		qDebug() << "[Dev mode start] Logger created";
+		LogWindow* logger = new LogWindow(g_logEdit, Owner);
+		logger->show();
+	}
+
+	struct ControlToolbar
+	{
+		QToolBar* controlToolbar = 0;
+		QAction* showImgAct = 0;
+		QAction* showKsAct = 0;
+		QAction* keepPrevAct = 0;
+		QAction* resetAct = 0;
+		QAction* setResulSizeAct = 0;
+	};
+	ControlToolbar controlToolbar;
+
+	void createControlToolbar()
+	{
+		const auto ControlToolbarArea = Qt::ToolBarArea::TopToolBarArea;
+		auto& ca = controlToolbar;
+
+		ca.controlToolbar = new QToolBar(Owner);
+
+		ca.showImgAct = new QAction("Show image");
+		util::actionPreset(ca.showImgAct, true, true, true);
+		ca.controlToolbar->addAction(ca.showImgAct);
+
+		ca.showKsAct = new QAction("Show karlsun");
+		util::actionPreset(ca.showKsAct, true, true, true);
+		ca.controlToolbar->addAction(ca.showKsAct);
+
+		ca.keepPrevAct = new QAction("Keep previous images");
+		util::actionPreset(ca.keepPrevAct, true, true, keepPreviousImage);
+		ca.controlToolbar->addAction(ca.keepPrevAct);
+
+		ca.resetAct = new QAction("Reset");
+		util::actionPreset(ca.resetAct, true, false, false);
+		ca.controlToolbar->addAction(ca.resetAct);
+
+		ca.setResulSizeAct = new QAction("Set size");
+		util::actionPreset(ca.setResulSizeAct, true, false, false);
+		ca.controlToolbar->addAction(ca.setResulSizeAct);
+
+		Owner->addToolBar(ControlToolbarArea, ca.controlToolbar);
+	}
+
+	struct InfoToolbar
+	{
+		QToolBar* infoToolbar = 0;
+
+		QWidget* canvasInfoWidget = 0;
+		QLabel* canvasInfoTitleLabel = 0;
+		QLabel* widthLabel = 0;
+		QLabel* heightLabel = 0;
+		QLabel* itemCountLabel = 0;
+	};
+	InfoToolbar infoToolbar;
+
+	void createInfoToolbar()
+	{
+		const auto InfoToolbarArea = Qt::ToolBarArea::LeftToolBarArea;
+
+		// Info toolbar
+		auto& it = infoToolbar;
+		it.infoToolbar = new QToolBar(Owner);
+
+		auto* canvasInfoLayout = new QVBoxLayout;
+		it.canvasInfoWidget = new QWidget(Owner);
+		it.canvasInfoTitleLabel = new QLabel(Owner);
+		it.widthLabel = new QLabel(Owner);
+		it.heightLabel = new QLabel(Owner);
+		it.itemCountLabel = new QLabel(Owner);
+		canvasInfoLayout->addWidget(it.canvasInfoTitleLabel);
+		canvasInfoLayout->addWidget(it.widthLabel);
+		canvasInfoLayout->addWidget(it.heightLabel);
+		canvasInfoLayout->addWidget(it.itemCountLabel);
+		it.canvasInfoWidget->setLayout(canvasInfoLayout);
+		it.infoToolbar->addWidget(it.canvasInfoWidget);
+		it.infoToolbar->addSeparator();
+
+		Owner->addToolBar(InfoToolbarArea, it.infoToolbar);
+		updateInfoToolbar();
+		// !Info toolbar
+	}
+
+	void updateInfoToolbar()
+	{
+		auto& it = infoToolbar;
+
+		it.canvasInfoTitleLabel->setText("Canvas Info");
+		it.widthLabel->setText(QString("%1%2").arg("Width : ").arg(canvasSize.width()));
+		it.heightLabel->setText(QString("%1%2").arg("Height : ").arg(canvasSize.height()));
+		it.itemCountLabel->setText(QString("%1%2").arg("Images : ").arg(imageManager.imageCount()));
+	}
+
+	void createCanvas()
+	{
+		// Canvas area
+		Owner->m_canvas = new ImageCanvas(Owner);
+		auto* scrollArea = new QScrollArea(Owner);
+		scrollArea->setWidget(Owner->m_canvas);
+		QLayout* layout = new QVBoxLayout;
+		layout->addWidget(scrollArea);
+		QWidget* mainWidget = new QWidget(Owner);
+		mainWidget->setLayout(layout);
+		Owner->setCentralWidget(mainWidget);
+		// !Canvas area
+	}
+
+	void askResetCanvas()
+	{
+		qDebug() << "Asking reset canvas";
+		if (Notify<bool>("Reset canvas\?", "All changes will be deleted"))
+		{
+			resetCanvas();
+		}
+	}
+
+	void setConnections()
+	{
+		// control toolbar
+		auto& ct = controlToolbar;
+		connect(ct.showImgAct, &QAction::triggered, [=](bool c)		{ Owner->showImage(c); });
+		connect(ct.showKsAct, &QAction::triggered, [=](bool c)		{ Owner->showKarlsun(c); });
+		connect(ct.keepPrevAct, &QAction::triggered, [=](bool c)	{ this->keepPreviousImage = c; });
+		connect(ct.resetAct, &QAction::triggered, [=](bool c)		{ this->askResetCanvas(); });
+		connect(ct.setResulSizeAct, &QAction::triggered, [=](bool c){ this->popCanvasResizer(); });
+		//
+	}
+
+	public slots:
+		void setResultSize(QSize resultSize)
+		{
+			canvasSize = resultSize;
+		}
 };
 
-BinpackMainWindow::BinpackMainWindow()
+BinpackMainWindow::BinpackMainWindow(bool isDevMode)
 	: pImpl(new PImpl(this))
 {
-	m_canvas = new ImageCanvas(this);
-
-	QLayout* layout = new QVBoxLayout(this);
-
-	auto* scrollArea = new QScrollArea(this);
-	//scrollArea->setFixedSize(800, 600);
-	scrollArea->setWidget(m_canvas);
-	layout->addWidget(scrollArea);
-
-	//auto* iconDock = new QDockWidget(this);
-	//iconDock->add
-
-	auto* toolBar = new QToolBar(this);
-	auto* drawKarlsunAct = new QAction("Draw Karlsun");
-	util::actionPreset(drawKarlsunAct, true, false, false);
-	auto* showImgAct = new QAction("Show image");
-	util::actionPreset(showImgAct, true, true, true);
-	auto* showKsAct = new QAction("Show karlsun");
-	util::actionPreset(showKsAct, true, true, true);
-	
-	toolBar->addAction(drawKarlsunAct);
-	toolBar->addAction(showImgAct);
-	toolBar->addAction(showKsAct);
-	
-
-	QWidget* mainWidget = new QWidget(this);
-	mainWidget->setLayout(layout);
-	setCentralWidget(mainWidget);
-	//this->addDockWidget(Qt::DockWidgetArea::LeftDockWidgetArea, iconDock);
-	this->addToolBar(Qt::ToolBarArea::LeftToolBarArea, toolBar);
+	pImpl->handleDevmode(isDevMode);
+	pImpl->createControlToolbar();
+	pImpl->createInfoToolbar();
+	pImpl->createCanvas();
+	pImpl->setConnections();
 
 	this->setAcceptDrops(true);
-	connect(drawKarlsunAct, &QAction::triggered, [=](bool c) {handleKarlsun(); });
-	connect(showImgAct, &QAction::triggered, [=](bool c) {showImage(c); });
-	connect(showKsAct, &QAction::triggered, [=](bool c) {showKarlsun(c); });
+
+	
 }
 BinpackMainWindow::~BinpackMainWindow()
 {
@@ -201,7 +432,7 @@ QSize BinpackMainWindow::minimumSizeHint() const
 
 QSize BinpackMainWindow::sizeHint() const
 {
-	return QSize(800, 600);
+	return QSize(1024, 800);
 }
 
 void BinpackMainWindow::showImage(bool checked)
@@ -218,8 +449,6 @@ void BinpackMainWindow::dragEnterEvent(QDragEnterEvent* event)
 	event->accept();
 }
 
-
-
 void BinpackMainWindow::dropEvent(QDropEvent* event)
 {
 	//file list
@@ -227,13 +456,16 @@ void BinpackMainWindow::dropEvent(QDropEvent* event)
 	if (fl.isEmpty())
 		return;
 
-	const bool keepPrev = false;
-	pImpl->updateBinImage(fl, keepPrev);
-	pImpl->tryBinPack();
+	qDebug() << "Drop event occured";
+
+	pImpl->handleDropEvent(fl);
+
 }
 
-void BinpackMainWindow::handleKarlsun()
+void BinpackMainWindow::setCanvasSize(QSize size)
 {
-	pImpl->updateKarlsun();
-	pImpl->setKarlsunStyle();
+	//will be handled by SizeReceiver
+	// check pImpl->popCanvasResizer()
+	qDebug() << "Size set from SizeReceiver, size : " << size;
+	pImpl->setCanvasSize(size);
 }
