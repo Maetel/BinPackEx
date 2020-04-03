@@ -58,6 +58,7 @@ void Binpacklog(QtMsgType type, const QMessageLogContext& context, const QString
 	if (!g_logEdit)
 		g_logEdit = new QTextEdit;
 	g_logEdit->setText(message);
+	g_logEdit->moveCursor(QTextCursor::MoveOperation::End);
 	
 	if (abort)
 		throw;
