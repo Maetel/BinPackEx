@@ -34,12 +34,16 @@ struct VectorRGB
 	VectorRGB(RGBType fillVal = 0) : RGB{ fillVal,fillVal,fillVal } {}
 	VectorRGB(RGBType r, RGBType g, RGBType b) : RGB{ r,g,b, } {}
 	VectorRGB(VectorRGB const& rhs) : RGB{ rhs.r(), rhs.g(), rhs.b() } {}
+	VectorRGB(VectorRGB&& rhs) { memcpy(RGB, rhs.RGB, sizeof(RGB)); }
 
 	VectorRGB& operator=(VectorRGB const& rhs)
 	{
-		r() = rhs.r();
-		g() = rhs.g();
-		b() = rhs.b();
+		memcpy(RGB, rhs.RGB, sizeof(RGB));
+		return *this;
+	}
+	VectorRGB& operator=(VectorRGB&& rhs)
+	{
+		memcpy(RGB, rhs.RGB, sizeof(RGB));
 		return *this;
 	}
 
@@ -109,6 +113,17 @@ VectorRGB& operator##_oper(RGBType value) \
 	static VectorRGB White() { return VectorRGB(255,255,255); }
 	static VectorRGB Black() { return VectorRGB(0,0,0); }
 
+#if 0
+	//i stop dealing with this dumb byte order
+	uint32_t toUint32() const
+	{
+		uint32_t retval = 0xff000000;
+		retval |= RGB[R] << 2;
+		retval |= RGB[G] << 1;
+		retval |= RGB[B] << 0;
+		return retval;
+	}
+#endif
 };
 
 class ImageObject
@@ -165,6 +180,8 @@ class ImageData : public ImageObject
 {
 public:
 	using PixelType = T;
+	using Ptr = std::shared_ptr<ImageData<T>>;
+	using ConstPtr = const std::shared_ptr<ImageData<T>>;
 
 	ImageData() { clear(); }
 	ImageData(QString path) { clear();  this->load(path); }
@@ -277,10 +294,40 @@ public:
 		QImage retval;
 
 		auto this_form = toQImageFormat();
-		if (!m_data || this_form == QImage::Format_Invalid)
+		if (!m_data || this_form == QImage::Format_Invalid || this->empty())
 			return retval;
 
-		return QImage(bits(), m_wid, m_hi, this_form);
+		//rgb specialization
+		if (this_form == QImage::Format_RGB888)
+		{
+			//little endian byte order
+			enum _RGBF_ORDER { _R = 2, _G = 1, _B  = 0, _F = 3 };
+
+			const auto tempForm = QImage::Format_RGB32;
+			retval = QImage(width(), height(), tempForm);
+			for (int row = 0; row < height(); ++row)
+			{
+#if 1
+				auto* qRow = retval.scanLine(row);
+				for (int col = 0; col < width(); ++col)
+				{
+					const VectorRGB val = this->at(col, row);
+					* (qRow++) = val.b();
+					* (qRow++) = val.g();
+					* (qRow++) = val.r();
+					* (qRow++) = 0xff;
+				}
+#else
+				uint32_t* qRow = reinterpret_cast<uint32_t*>(retval.scanLine(row));
+				for (int col = 0; col < width(); ++col)
+					*(qRow + col) = this->at(col, row).toUint32();
+#endif
+			}
+			
+		}
+		else retval = QImage(bits(), m_wid, m_hi, this_form);
+
+		return retval;
 	}
 
 	QImage::Format toQImageFormat() const
