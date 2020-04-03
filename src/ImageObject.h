@@ -363,8 +363,8 @@ public:
 		const auto quality = std::clamp(jpgQuality, -1, 100);
 		QImage toq = this->toQImage();
 		
-		auto dpi2dpm = [](int _dpi)->int { return (int)(_dpi) / 0.0254) };
-		const auto dpm = dpi2dpm(dpi);
+		auto dpi2dpm = [](int _dpi)->int { return (int)((_dpi) / 0.0254); };
+		const int dpm = dpi2dpm(dpi);
 
 		toq.setDotsPerMeterX(dpm);
 		toq.setDotsPerMeterY(dpm);
@@ -386,6 +386,9 @@ public:
 
 	T* data() { return m_data; }
 	T const* const data() const { return m_data; }
+
+	T* rowAddress(int row) { return &m_data[row * m_wid]; }
+	T const* rowAddress(int row) const { return &m_data[row * m_wid]; }
 
 	std::vector<T> dataVector() const
 	{
@@ -447,6 +450,51 @@ public:
 			retval(idx) = static_cast<OutT>(m_data[idx]);
 		
 		return retval;
+	}
+
+	static ImageData<T>::Ptr flip(ImageData<T> const& input, bool horizontal = true)
+	{
+		const int wid = input.width(), hi = input.height();
+		ImageData<T>::Ptr buf = std::make_shared<ImageData<T>>(wid, hi);
+
+		if (horizontal)
+		{
+			buf->for_each_px(false, [&input, wid](int x, int y, auto& val) 
+			{
+				val = input(wid - 1 - x, y);
+			});
+		}
+		else //vertical
+		{
+			for (int row = 0; row < hi; row++)
+				memcpy(buf->rowAddress(row), input.rowAddress(hi - 1 - row), wid * sizeof(T));
+		}
+		return buf;
+	}
+
+	static ImageData<T>::Ptr rotate(ImageData<T> const& input, bool clockwise = true)
+	{
+		const int wid = input.height(), hi = input.width();
+		ImageData<T>::Ptr buf = std::make_shared<ImageData<T>>(wid, hi);
+		
+		const bool isParallel = false;
+
+		if (clockwise)
+		{
+			buf->for_each_px(isParallel, [&input, wid, hi](int x, int y, auto& val)
+			{
+				val = input(y, wid - x);
+			});
+		}
+		else //counter-clockwise
+		{
+			buf->for_each_px(isParallel, [&input, wid, hi](int x, int y, auto& val)
+			{
+				val = input(hi - 1 - y, x);
+			});
+		}
+
+		return buf;
 	}
 
 	bool drawSubImage(ImageData<T> const& input, int x, int y, bool rotate90 = false)
@@ -537,6 +585,8 @@ protected:
 protected:
 	const int default_wid = 0, default_hi = 0;
 	int m_wid, m_hi;
+	
+	//col major
 	T* m_data = 0;
 };
 
