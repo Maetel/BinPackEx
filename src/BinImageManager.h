@@ -103,7 +103,7 @@ public:
 		}
 	}
 
-	ImageDataRGBPtr makeFinalImage(VectorRGB background = VectorRGB::Constant(3, 1, 255))
+	ImageDataRGBPtr makeFinalImage(VectorRGB background = VectorRGB::Red())
 	{
 		ImageDataRGBPtr retval = 0;
 		if (!isResultSizeReady())

@@ -92,12 +92,14 @@ macro(qt_main QT_MODULE_STRING)
         ${project_sources_moc}
         )
 
-    set(MODS "")
+    set(MODS)
     foreach(MOD ${QT_MODULE_LIST})
-        set(MODS "${MODS};Qt5::${MOD}")
+        set(MODS "Qt5::${MOD};${MODS}")
+        add_custom_command(TARGET ${MAIN_PROJECT} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:Qt5::${MOD}> $<TARGET_FILE_DIR:${MAIN_PROJECT}>)
     endforeach()
     message("MODS ${MODS}")
-    target_link_libraries(${MAIN_PROJECT} PUBLIC ${MODS})    
+    
+    target_link_libraries(${MAIN_PROJECT} PUBLIC ${MODS})
 
     message("Qt5 Project : ${MAIN_PROJECT} added")
 
@@ -137,6 +139,4 @@ endmacro()
 #link_qt(${MAIN_PROJECT} "Core Widgets Gui")
 
 qt_main("Core Widgets Gui")
-link_eigen(${MAIN_PROJECT})
 link_RectangleBinPack(${MAIN_PROJECT})
-link_exif(${MAIN_PROJECT})

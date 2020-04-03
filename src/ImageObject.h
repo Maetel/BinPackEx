@@ -4,11 +4,112 @@
 
 #include <QImage>
 #include <QString>
-#include "eigen_preset.h"
 
-#define RGB_WHITE VectorRGB::Constant(3, 1, 255)
-#define RGB_BLACK VectorRGB::Constant(3, 1, 0)
+//this method doesn't handle under/overflow
+template<typename TOut, typename TIn>
+constexpr TOut saturateCast(TIn val)
+{
+	constexpr auto maxVal = std::numeric_limits<TOut>::max();
+	constexpr auto minVal = std::numeric_limits<TOut>::min();
+	return
+		(val > maxVal) ? maxVal :
+		(val < minVal) ? minVal :
+		val;
+}
 
+struct VectorRGBA
+{
+	enum RGB { R = 0, G = 1, B = 2, A = 3 };
+	using RGBAType = unsigned char;
+	RGBAType rgba[4];
+};
+
+struct VectorRGB
+{
+	enum RGB { R = 0, G = 1, B = 2 };
+	using RGBType = unsigned char;
+	RGBType RGB[3];
+
+	//operators
+	VectorRGB(RGBType fillVal = 0) : RGB{ fillVal,fillVal,fillVal } {}
+	VectorRGB(RGBType r, RGBType g, RGBType b) : RGB{ r,g,b, } {}
+	VectorRGB(VectorRGB const& rhs) : RGB{ rhs.r(), rhs.g(), rhs.b() } {}
+
+	VectorRGB& operator=(VectorRGB const& rhs)
+	{
+		r() = rhs.r();
+		g() = rhs.g();
+		b() = rhs.b();
+		return *this;
+	}
+
+	RGBType& operator[](int index) { return RGB[index]; }
+	RGBType operator[](int index) const { return RGB[index]; }
+	RGBType& operator()(int index) { return RGB[index]; }
+	RGBType operator()(int index) const { return RGB[index]; }
+
+	template<typename ScalarT>
+	VectorRGB& operator=(ScalarT _scalar)
+	{
+		r() = saturateCast<RGBType, ScalarT>(_scalar);
+		g() = saturateCast<RGBType, ScalarT>(_scalar);
+		b() = saturateCast<RGBType, ScalarT>(_scalar);
+		return *this;
+	}
+
+	bool operator==(VectorRGB const& rhs) const
+	{
+		return
+			(r() == rhs.r()) &&
+			(g() == rhs.g()) &&
+			(g() == rhs.b())
+			;
+	}
+
+#define _VECTOR_RGB_SCALAR_OP(_oper) \
+VectorRGB& operator##_oper(RGBType value) \
+{ \
+	r() = saturateCast<RGBType, int>(r() _oper value); \
+	g() = saturateCast<RGBType, int>(g() _oper value); \
+	b() = saturateCast<RGBType, int>(b() _oper value); \
+	return *this; \
+}
+	_VECTOR_RGB_SCALAR_OP(+);
+	_VECTOR_RGB_SCALAR_OP(-);
+	_VECTOR_RGB_SCALAR_OP(*);
+
+	VectorRGB& operator/(RGBType value)
+	{
+		r() = saturateCast<RGBType, float>(r() / (float)value);
+		g() = saturateCast<RGBType, float>(g() / (float)value);
+		b() = saturateCast<RGBType, float>(b() / (float)value);
+		return *this;
+	}
+
+	//methods
+	void fill(RGBType value) 
+	{ 
+		RGB[0] = value; RGB[1] = value; RGB[2] = value;
+	}
+
+	RGBType& r() { return RGB[R]; }
+	RGBType r() const { return RGB[R]; }
+	RGBType& g() { return RGB[G]; }
+	RGBType g() const { return RGB[G]; }
+	RGBType& b() { return RGB[B]; }
+	RGBType b() const { return RGB[B]; }
+	
+	RGBType* data() { return RGB; }
+	RGBType const* data() const { return RGB; }
+
+	static VectorRGB Constant(RGBType value) { return VectorRGB(value); }
+	static VectorRGB Red() { return VectorRGB(255,0,0); }
+	static VectorRGB Green() { return VectorRGB(0,255,0); }
+	static VectorRGB Blue() { return VectorRGB(0,0,255); }
+	static VectorRGB White() { return VectorRGB(255,255,255); }
+	static VectorRGB Black() { return VectorRGB(0,0,0); }
+
+};
 
 class ImageObject
 {
@@ -391,14 +492,14 @@ using ImageDataFloat = ImageData<float>;
 using ImageDataDouble = ImageData<double>;
 using ImageDataRGB = ImageData<VectorRGB>;
 using RGBImage = ImageData<VectorRGB>;
-using ImageDataRGBA = ImageData<VectorRGBA>;
-using RGBAImage = ImageData<VectorRGBA>;
+//using ImageDataRGBA = ImageData<VectorRGBA>;
+//using RGBAImage = ImageData<VectorRGBA>;
 
 DECL_PTR(ImageData8);
 DECL_PTR(ImageDataFloat);
 DECL_PTR(ImageDataDouble);
 DECL_PTR(ImageDataRGB);
-DECL_PTR(ImageDataRGBA);
+//DECL_PTR(ImageDataRGBA);
 
 #undef DECL_PTR
 
@@ -424,16 +525,6 @@ inline ImageData8 RGB2Gray(ImageDataRGB const& image)
 		});
 }
 
-//this method doesn't handle under/overflow
-template<typename TOut, typename TIn>
-constexpr TOut saturateCast(TIn val)
-{
-	constexpr auto maxVal = std::numeric_limits<TOut>::max();
-	constexpr auto minVal = std::numeric_limits<TOut>::min();
-	return
-		(val > maxVal) ? maxVal :
-		(val < minVal) ? minVal :
-		val;
-}
+
 
 #pragma endregion
