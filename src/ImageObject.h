@@ -355,10 +355,20 @@ public:
 
 		return true;
 	}
-	bool save(QString path, int jpgQuality = -1) const
+
+	// jpgQuality : 0 ~ 100, the higher the better. -1 is default value for QImage option
+	// dpi : will be converted to dots per meter internally
+	bool save(QString path, int jpgQuality = -1, int dpi = 72) const
 	{
-		const auto q = std::clamp(jpgQuality, -1, 100);
-		return toQImage().save(path, nullptr, q);
+		const auto quality = std::clamp(jpgQuality, -1, 100);
+		QImage toq = this->toQImage();
+		
+		auto dpi2dpm = [](int _dpi)->int { return (int)(_dpi) / 0.0254) };
+		const auto dpm = dpi2dpm(dpi);
+
+		toq.setDotsPerMeterX(dpm);
+		toq.setDotsPerMeterY(dpm);
+		return toq.save(path, nullptr, quality);
 	}
 	// ! Image IOs
 #pragma endregion
