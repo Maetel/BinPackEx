@@ -278,7 +278,7 @@ public:
 		{
 			//buf = buf.convertToFormat(this_form);
 
-			const size_t wid = buf.width(), hi = buf.height();
+			const int wid = buf.width(), hi = buf.height();
 			std::vector<T> dataBuf(wid * hi);
 
 			for (int y = 0; y < hi; ++y)

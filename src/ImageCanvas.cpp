@@ -2,6 +2,7 @@
 #include <QPainter>
 #include <QRectF>
 #include <QTextItem>
+#include "BinImage.h"
 
 class ImageCanvas::Internal
 {
@@ -10,8 +11,6 @@ public:
 
 	Internal(ImageCanvas* owner)
 		: Owner(owner)
-		, minWid(Owner->minimumSizeHint().width())
-		, minHi(Owner->minimumSizeHint().height())
 	{}
 	~Internal() {}
 
@@ -20,35 +19,21 @@ public:
 
 	ImageCanvas::CanvasObjectType m_showWhat = ImageCanvas::ALL;
 	QBrush m_KarlsunBrush;
+	std::vector<BinImagePtr> m_binImages;
+	std::vector<QImage> m_binQImages;
 	std::vector<Karlsun> m_karlsuns;
-	QImage m_image;
+
+	std::atomic_int m_canvasPadding = 20;
+	QPoint canvasPadding() const { return QPoint(m_canvasPadding, m_canvasPadding); }
 	QSize m_prevSize = QSize(0, 0);
 
 	bool showImage() const { return m_showWhat & ImageCanvas::ImageObj; }
 	bool showKarlsun() const { return m_showWhat & ImageCanvas::KarlsunObj; }
 	bool showIndex() const { return m_showWhat & ImageCanvas::IndexStringObj; }
-	
-	const int minWid, minHi;
 
-	QSize chooseCanvasSize()
+	QSize canvasSize() const
 	{
-		QSize retval = m_prevSize;
-
-		//update if different
-		if (const auto curSize = m_image.size(); m_prevSize != curSize)
-			retval = curSize;
-
-		//check min
-		{
-			if (retval.width() < minWid)
-				retval.setWidth(minWid);
-			if (retval.height() < minHi)
-				retval.setHeight(minHi);
-		}
-
-		//store last size
-		m_prevSize = retval;
-		return retval;
+		return m_prevSize;
 	}
 };
 
@@ -57,6 +42,12 @@ ImageCanvas::ImageCanvas(QWidget* parent)
 	: QWidget(parent)
 	, pImpl(new Internal(this))
 {
+	QPalette pal = palette();
+
+	// set black background
+	pal.setColor(QPalette::Background, Qt::darkGray);
+	this->setAutoFillBackground(true);
+	this->setPalette(pal);
 }
 
 QSize ImageCanvas::minimumSizeHint() const
@@ -64,16 +55,17 @@ QSize ImageCanvas::minimumSizeHint() const
 	return QSize(640, 480);
 }
 
-QSize ImageCanvas::sizeHint() const
-{
-	return QSize(640, 480);
-}
+//QSize ImageCanvas::sizeHint() const
+//{
+//	return QSize(640, 480);
+//}
 
 void ImageCanvas::resetCanvas()
 {
 	//pImpl->m_KarlsunBrush = QBrush //keep this
+	pImpl->m_binImages.clear();
+	pImpl->m_binQImages.clear();
 	pImpl->m_karlsuns.clear();
-	pImpl->m_image = QImage();
 	update();
 }
 
@@ -94,52 +86,67 @@ void ImageCanvas::hideObejct(CanvasObjectType objType)
 	update();
 }
 
-void ImageCanvas::setKarlsunBrush(QBrush brush)
+void ImageCanvas::setCanvasSize(QSize inSize)
 {
-	pImpl->m_KarlsunBrush = brush;
+	if (pImpl->m_prevSize == inSize)
+		return;
+
+	const int padding = pImpl->m_canvasPadding;
+	//inSize.setHeight(inSize.height() + padding * 2);
+	//inSize.setWidth(inSize.width() + padding * 2);
+
+	pImpl->m_prevSize = inSize;
+	this->resize(pImpl->m_prevSize + QSize(padding*2, padding*2));
 	update();
 }
 
-void ImageCanvas::setKarlsun(std::vector<Karlsun> const& rects)
+void ImageCanvas::setBinImages(std::vector<BinImagePtr> binImages)
 {
-	pImpl->m_karlsuns = rects;
-	update();
-}
+	pImpl->m_binImages = binImages;
+	pImpl->m_binQImages.clear();
+	pImpl->m_karlsuns.clear();
 
-void ImageCanvas::setImage(QImage const& image)
-{
-	pImpl->m_image = image.copy();
-	const QSize szDebug = pImpl->m_image.size();
+	for (auto ptr : binImages)
+	{
+		QImage buf = ptr->imagePtr->toQImage().copy();
+		buf.setOffset(ptr->result.topLeft());
+		pImpl->m_binQImages.push_back(buf);
+		pImpl->m_karlsuns.push_back(ptr->karlsun);
+	}
+	
 	update();
 }
 
 void ImageCanvas::paintEvent(QPaintEvent* event)
 {
 	//QImage image = pImpl->m_image.copy();
-	QImage const& image = pImpl->m_image;
+	auto const& image = pImpl->m_binQImages;
 	auto const& rects = pImpl->m_karlsuns;
 	auto const& rectBrush = pImpl->m_KarlsunBrush;
 
-	const QSize curSize = pImpl->chooseCanvasSize();
-	this->resize(curSize);
+	const QPoint canvasPadding = pImpl->canvasPadding();
+	const QSize curSize = pImpl->canvasSize();
 
 	QPainter painter(this);
-	//painter.setBrush(QBrush(image));
+	QPixmap imgBg(curSize);
+	imgBg.fill();
+	painter.drawPixmap(canvasPadding, imgBg);
 
-	if (!image.isNull() && pImpl->showImage())
+	if (!image.empty() && pImpl->showImage())
 	{
-		painter.drawImage(QRect(QPoint(0, 0), curSize), image);
+		for(auto const& qimg : image)
+			painter.drawImage(QRect(qimg.offset() + canvasPadding, qimg.size()), qimg);
 	}
 
 	if (!rects.empty() && pImpl->showKarlsun())
 	{
 		for (auto const& karlsun : rects)
 		{
-			//TODO : apply color
-			const QRect rect = karlsun.rect;
-			QBrush rectBrush;
-			rectBrush.setColor(karlsun.style.color);
-			painter.setBrush(rectBrush);
+			const QRect rect(karlsun.rect.topLeft() + canvasPadding, karlsun.rect.bottomRight() + canvasPadding);
+			////TODO : apply color
+			//QBrush rectBrush;
+			//rectBrush.setColor(karlsun.style.color);
+			//painter.setBrush(rectBrush);
 			painter.drawRoundedRect(rect, karlsun.style.roundPixel, karlsun.style.roundPixel);
 		}
 	}
@@ -153,9 +160,6 @@ void ImageCanvas::paintEvent(QPaintEvent* event)
 		painter.setPen(Qt::red);
 
 		for (auto const& karlsun : rects)
-			painter.drawText(karlsun.rect.topLeft() + QPoint(10, 50), QString("[%1]").arg(karlsun.imageIndex));
+			painter.drawText(karlsun.rect.topLeft() + canvasPadding + QPoint(10, 50), QString("[%1]").arg(karlsun.imageIndex));
 	}
-
-	//painter.drawRoundedRect
-	
 }

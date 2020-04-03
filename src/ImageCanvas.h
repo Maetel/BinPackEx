@@ -5,6 +5,9 @@
 #include <QPen>
 #include "Karlsun.h"
 
+class BinImage;
+using BinImagePtr = std::shared_ptr<BinImage>;
+
 class ImageCanvas : public QWidget
 {
 	Q_OBJECT
@@ -20,16 +23,16 @@ public:
 public:	
 	ImageCanvas(QWidget* parent = 0);
 	QSize minimumSizeHint() const override;
-	QSize sizeHint() const override;
+	//QSize sizeHint() const override;
 
 public slots:
 
 	void showObejct(CanvasObjectType objType = ALL);
 	void hideObejct(CanvasObjectType objType = ALL);
 	void resetCanvas();
-	void setKarlsunBrush(QBrush brush);
-	void setKarlsun(std::vector<Karlsun> const& karlsuns);
-	void setImage(QImage const& image);
+	
+	void setCanvasSize(QSize);
+	void setBinImages(std::vector<BinImagePtr> binimages);
 
 protected:
 	void paintEvent(QPaintEvent* event) override;

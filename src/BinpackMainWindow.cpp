@@ -99,34 +99,26 @@ public:
 		imageManager.clear();
 		Owner->m_canvas->resetCanvas();
 		finalImage = 0;
+		Owner->m_canvas->setCanvasSize(canvasSize);
 		updateCanvas();
 		updateInfoToolbar();
 	}
-
-	void drawImage()
+	
+	void sendBinImages2Canvas()
 	{
-		if (finalImage && !finalImage->empty())
+		if (imageManager.isAble())
 		{
-			qDebug() << "Drawing image to canvas";
-			QImage copied = finalImage->toQImage().copy();
-			Owner->m_canvas->setImage(std::forward<QImage>(copied));
+			Owner->m_canvas->setCanvasSize(imageManager.resultSize);
+			Owner->m_canvas->setBinImages(imageManager.binImages);
 			updateCanvas();
 		}
 		else
 		{
 			qWarning() << "Failed to draw image";
 		}
-		
+
 	}
 
-	void drawKarlsun()
-	{
-		qDebug() << "Drawing karlsun to canvas";
-		Owner->m_canvas->setKarlsun(imageManager.karlsuns());
-		updateCanvas();
-	}
-
-	
 	void showImageIndex(bool checked)
 	{
 		qDebug() << "show image index : " << checked;
@@ -157,8 +149,10 @@ public:
 		updateCanvas();
 	}
 
-	void handleDropEvent(QList<QUrl> const& fileList)
+	void addImageList(QList<QUrl> const& fileList)
 	{
+		qDebug() << "adding images. Image count : " << fileList.size();
+
 		imageManager.storeCurState();
 		updateBinImage(fileList);
 		if (!tryBinPack())
@@ -209,7 +203,7 @@ public:
 		else
 		{
 			qDebug() << "Succeded to update karlsun.";
-			drawKarlsun();
+			sendBinImages2Canvas();
 		}
 			
 	}
@@ -257,9 +251,16 @@ public:
 		}
 
 		//if (this->finalImage = mgr.binPack([this](QString msg) {Notify(__FUNCTION__, msg); }))
-		if (this->finalImage = mgr.binPack([](QString msg) { qWarning() << msg; }))
+#define _BINPACK_LOGGER_WARNING [](QString msg) { qWarning() << msg; }
+#define _BINPACK_LOGGER_MUTE
+#ifdef _DEBUG
+#define BINPACK_LOGGER _BINPACK_LOGGER_WARNING
+#else //Binpack logger is muted on release version
+#define BINPACK_LOGGER _BINPACK_LOGGER_MUTE
+#endif
+		if (this->finalImage = mgr.binPack(BINPACK_LOGGER))
 		{
-			drawImage();
+			sendBinImages2Canvas();
 			updateKarlsun();
 			setKarlsunStyle();
 			return true;
@@ -327,6 +328,7 @@ public:
 	struct ControlToolbar
 	{
 		QToolBar* controlToolbar = 0;
+		QAction* openFileAct = 0;
 		QAction* saveImageAct = 0;
 		QAction* showImgAct = 0;
 		QAction* showKsAct = 0;
@@ -345,10 +347,19 @@ public:
 
 		ca.controlToolbar = new QToolBar(Owner);
 
+		//file actions
+		ca.openFileAct = new QAction("Open files");
+		util::actionPreset(ca.openFileAct, true, false, false);
+		ca.controlToolbar->addAction(ca.openFileAct);
+
 		ca.saveImageAct = new QAction("Save result image");
 		util::actionPreset(ca.saveImageAct, true, false, false);
 		ca.controlToolbar->addAction(ca.saveImageAct);
+		//!file actions
 
+		ca.controlToolbar->addSeparator();
+
+		//view actions
 		ca.showImgAct = new QAction("View image");
 		util::actionPreset(ca.showImgAct, true, true, true);
 		ca.controlToolbar->addAction(ca.showImgAct);
@@ -360,7 +371,12 @@ public:
 		ca.showImgIdxAct = new QAction("View index");
 		util::actionPreset(ca.showImgIdxAct, true, true, true);
 		ca.controlToolbar->addAction(ca.showImgIdxAct);
+		//!view actions
 
+		ca.controlToolbar->addSeparator();
+
+
+		//!control actions
 		ca.keepPrevAct = new QAction("Keep previous images");
 		util::actionPreset(ca.keepPrevAct, true, true, keepPreviousImage);
 		ca.controlToolbar->addAction(ca.keepPrevAct);
@@ -376,6 +392,7 @@ public:
 		ca.removeImageAct = new QAction("Remove images");
 		util::actionPreset(ca.removeImageAct, true, false, false);
 		ca.controlToolbar->addAction(ca.removeImageAct);
+		//!control actions
 
 		Owner->addToolBar(ControlToolbarArea, ca.controlToolbar);
 	}
@@ -391,6 +408,25 @@ public:
 		QLabel* itemCountLabel = 0;
 	};
 	InfoToolbar infoToolbar;
+
+	void openImageFiles()
+	{
+		QFileDialog dialog(Owner);
+		dialog.setDirectory(QDir::homePath());
+		dialog.setFileMode(QFileDialog::ExistingFiles);
+		dialog.setNameFilter(trUtf8("Images (*.jpg)"));
+		QList<QUrl> fl;
+		if (dialog.exec())
+			fl = dialog.selectedUrls();
+
+		if (fl.isEmpty())
+		{
+			qDebug() << "No valid image selected";
+			return;
+		}
+
+		addImageList(fl);
+	}
 
 	void saveResultImage()
 	{
@@ -471,6 +507,7 @@ public:
 	{
 		// control toolbar
 		auto& ct = controlToolbar;
+		connect(ct.openFileAct, &QAction::triggered, [=](bool c)	{ this->openImageFiles(); });
 		connect(ct.saveImageAct, &QAction::triggered, [=](bool c)	{ this->saveResultImage(); });
 		connect(ct.showImgAct, &QAction::triggered, [=](bool c)		{ this->showImage(c); });
 		connect(ct.showKsAct, &QAction::triggered, [=](bool c)		{ this->showKarlsun(c); });
@@ -531,7 +568,7 @@ void BinpackMainWindow::dropEvent(QDropEvent* event)
 
 	qDebug() << "Drop event occured";
 
-	pImpl->handleDropEvent(fl);
+	pImpl->addImageList(fl);
 
 }
 

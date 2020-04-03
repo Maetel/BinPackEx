@@ -6,6 +6,12 @@
 #include "ImagePathParser.h"
 #include "BinPacker.h"
 
+// * header only class
+// contains followings :
+//		BinImages
+//		BInPacking Algorithm
+//		Destination size (resultSize)
+//		Last state of BinImages
 class BinImageManager
 {
 public:
@@ -51,7 +57,7 @@ public:
 
 	BinImages& images() { return binImages; }
 	BinImages const& images() const { return binImages; }
-	BinImagePtr& imageAt(int index)
+	BinImagePtr imageAt(int index)
 	{
 		if (index >= imageCount())
 			return BinImagePtr();
@@ -61,7 +67,7 @@ public:
 
 		return BinImagePtr() = 0;
 	}
-	BinImagePtr const& imageAt(int index) const
+	BinImagePtr const imageAt(int index) const
 	{
 		if (index >= imageCount())
 			return BinImagePtr();
@@ -72,6 +78,8 @@ public:
 		return 0;
 	}
 
+	// Copied values, karlsuns extracted explicitly
+	// these karlsuns will not be updated even if BinImages are updated
 	std::vector<Karlsun> karlsuns() const
 	{
 		std::vector<Karlsun> retval;
@@ -99,11 +107,12 @@ public:
 			binPacker = std::make_unique<BinPacker<Guillotine>>();
 			break;
 		default:
+			throw;
 			break;
 		}
 	}
 
-	ImageDataRGBPtr makeFinalImage(VectorRGB background = VectorRGB::Red())
+	ImageDataRGBPtr makeFinalImage(VectorRGB background = VectorRGB::White()) const
 	{
 		ImageDataRGBPtr retval = 0;
 		if (!isResultSizeReady())
@@ -147,6 +156,12 @@ public:
 		retval = makeFinalImage();
 
 		return retval;
+	}
+
+	//bin pack logger muted
+	ImageDataRGBPtr binPack()
+	{
+		return binPack([](QString msg) {/* mute */});
 	}
 
 	int imageCount() const { return (int)binImages.size(); }
@@ -209,25 +224,20 @@ public:
 				return lhs > rhs;
 			});
 
-		//index larger than image count
+		//return false if contains an index larger than image count
 		if (*(indices.begin()) >= imageCount())
 			return false;
 
 		//remove from large number to small one
 		for (auto index : indices)
-		{
-			const bool suc = removeBinImage(index);
-			if (!suc)
+			if (const bool suc = removeBinImage(index); !suc)
 				return false;
-		}
-			
-		
+
 		return true;
 	}
 
 	void clear()
 	{
-		//allocate new stack
 		binImages = BinImages();
 	}
 };

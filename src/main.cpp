@@ -1,8 +1,6 @@
 
 #include "ImageObjectExample.h"
-
 #include "BinpackMainWindow.h"
-#include "CanvasTestWindow.h"
 #include <QApplication>
 
 int main(int argc, char* argv[])
