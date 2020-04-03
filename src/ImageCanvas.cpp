@@ -153,7 +153,7 @@ void ImageCanvas::paintEvent(QPaintEvent* event)
 		painter.setPen(Qt::red);
 
 		for (auto const& karlsun : rects)
-			painter.drawText(karlsun.rect.topLeft() + QPoint(10, 50), QString::number(karlsun.imageIndex));
+			painter.drawText(karlsun.rect.topLeft() + QPoint(10, 50), QString("[%1]").arg(karlsun.imageIndex));
 	}
 
 	//painter.drawRoundedRect

@@ -44,13 +44,14 @@ public:
 
 	ImagePathParser imagePathParser;
 	BinImageManager imageManager;
-	bool keepPreviousImage = false;
+	bool keepPreviousImage = true;
 	ImageDataRGBPtr finalImage;
 	QSize canvasSize{ 1600,1000 };
 
 	template <typename T = void>
 	T Notify(QString title, QString msg) {}
 
+	//Question?
 	template <>
 	bool Notify(QString title, QString msg)
 	{
@@ -60,6 +61,7 @@ public:
 			;
 	}
 
+	//Info/alert
 	template <>
 	void Notify(QString title, QString msg)
 	{
@@ -160,10 +162,7 @@ public:
 		imageManager.storeCurState();
 		updateBinImage(fileList);
 		if (!tryBinPack())
-		{
-			// TODO : remember last state and restore if fails
 			imageManager.restoreLastState();
-		}
 		updateCanvas();
 		updateInfoToolbar();
 	}
@@ -252,12 +251,13 @@ public:
 
 		if (!mgr.isAble())
 		{
-			Notify(__FUNCTION__, "BinPacking disabled (Image not loaded)");
+			Notify("Auto nesting", "Auto nesting disabled (Image not loaded)");
 			resetCanvas();
 			return false;
 		}
 
-		if (this->finalImage = mgr.binPack([this](QString msg) {Notify(__FUNCTION__, msg); }))
+		//if (this->finalImage = mgr.binPack([this](QString msg) {Notify(__FUNCTION__, msg); }))
+		if (this->finalImage = mgr.binPack([](QString msg) { qWarning() << msg; }))
 		{
 			drawImage();
 			updateKarlsun();
@@ -266,7 +266,7 @@ public:
 		}
 		else
 		{
-			Notify(__FUNCTION__, "Failed bin packing");
+			Notify("Auto nesting", "Failed to nest images");
 			return false;
 		}
 

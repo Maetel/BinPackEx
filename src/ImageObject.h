@@ -207,9 +207,10 @@ public:
 
 		return true;
 	}
-	bool save(QString path) const
+	bool save(QString path, int jpgQuality = -1) const
 	{
-		return toQImage().save(path);
+		const auto q = std::clamp(jpgQuality, -1, 100);
+		return toQImage().save(path, nullptr, q);
 	}
 	// ! Image IOs
 #pragma endregion

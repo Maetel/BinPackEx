@@ -10,8 +10,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(PROJECT_TITLE "BinPackEx" CACHE STRING "Project Title")
-project(${PROJECT_TITLE} LANGUAGES CXX)
+set(MAIN_PROJECT "BinPackEx" CACHE STRING "Project Title")
+project(${MAIN_PROJECT} LANGUAGES C CXX)
 set(CUR_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(SRC_DIR ${CUR_DIR}/src CACHE STRING "Source directory")
 
@@ -24,26 +24,38 @@ set(CMAKE_MODULE_PATH "${CUSTOM_MODULE_PATH};${CMAKE_MODULE_PATH}")
 ######################################################
 ## RectangleBinPack
 ## https://github.com/juj/RectangleBinPack.git
-
 macro(link_RectangleBinPack DST_PROJ)
-    set(RBP_PROJECT "RectangleBinPack" CACHE STRING "RectangleBinPack_Project_Name")
-    #project(${RBP_PROJECT})
+    set(TARGET_RBP "RectangleBinPack" CACHE STRING "RectangleBinPack_Project_Name")
+    #project(${TARGET_RBP})
     set(RBP_DIR ${3RD_PARTY}/RectangleBinPack)
     set(RBP_BASE_SRC "${RBP_DIR}/Rect.cpp")
     set(RBP_BASE_HEADER "${RBP_DIR}/Rect.h")
     set(RBP_ALG_TYPE "GuillotineBinPack" CACHE STRING "RBP_ALG_TYPE")
     set(RBP_SRCS "${RBP_BASE_SRC};${RBP_DIR}/${RBP_ALG_TYPE}.cpp")
     set(RBP_HEADERS "${RBP_BASE_HEADER};${RBP_DIR}/${RBP_ALG_TYPE}.h")
-    add_library(${RBP_PROJECT} STATIC "${RBP_SRCS};${RBP_HEADERS}")
+    add_library(${TARGET_RBP} STATIC "${RBP_SRCS};${RBP_HEADERS}")
     message("RBP_DIR ${RBP_DIR}")
-    target_link_libraries(${DST_PROJ} PUBLIC
-        debug ${RBP_PROJECT}
-        optimized ${RBP_PROJECT}
+    target_link_libraries(${DST_PROJ} PRIVATE
+        debug ${TARGET_RBP}
+        optimized ${TARGET_RBP}
         )
-    target_include_directories(${DST_PROJ} PUBLIC ${RBP_DIR})
+    target_include_directories(${DST_PROJ} PRIVATE ${RBP_DIR})
     message("${DST_PROJ} - RectangleBinPack (${RBP_ALG_TYPE}) linked")
+    target_compile_definitions(${DST_PROJ} PUBLIC LINK_RECTANGLEBINPACK_ENABLED)
 endmacro()
 ## !RectangleBinPack
+######################################################
+
+######################################################
+## eigen
+macro(link_eigen DST_PROJ)
+    #Eigen
+    set(EIGEN_VERSION "3.3.7")
+    set(EIGEN_SRC "${3RD_PARTY}/eigen/${EIGEN_VERSION}")
+    target_include_directories(${DST_PROJ} PRIVATE "${EIGEN_SRC}")
+    target_compile_definitions(${DST_PROJ} PUBLIC LINK_EIGEN_ENABLED)
+endmacro()
+## !eigen
 ######################################################
 
 ## !3rd party
@@ -54,9 +66,9 @@ endmacro()
 
 macro(simple_main)
     FILE(GLOB MAIN_SRCS ${SRC_DIR}/*.cpp ${SRC_DIR}/*.h)
-    add_executable(${PROJECT_TITLE} ${MAIN_SRCS})
-    link_RectangleBinPack(${PROJECT_TITLE})
-    link_opencv(${PROJECT_TITLE})
+    add_executable(${MAIN_PROJECT} ${MAIN_SRCS})
+    link_RectangleBinPack(${MAIN_PROJECT})
+    link_opencv(${MAIN_PROJECT})
 endmacro(simple_main)
 
 macro(qt_main QT_MODULE_STRING)
@@ -74,7 +86,7 @@ macro(qt_main QT_MODULE_STRING)
 
     qt5_wrap_cpp(project_sources_moc ${project_headers})
 
-    add_executable(${PROJECT_TITLE} 
+    add_executable(${MAIN_PROJECT} 
         ${project_headers}
         ${project_srcs}
         ${project_sources_moc}
@@ -85,12 +97,12 @@ macro(qt_main QT_MODULE_STRING)
         set(MODS "${MODS};Qt5::${MOD}")
     endforeach()
     message("MODS ${MODS}")
-    target_link_libraries(${PROJECT_TITLE} PUBLIC ${MODS})    
+    target_link_libraries(${MAIN_PROJECT} PUBLIC ${MODS})    
 
-    message("Qt5 Project : ${PROJECT_TITLE} added")
+    message("Qt5 Project : ${MAIN_PROJECT} added")
 
-    #link_RectangleBinPack(${PROJECT_TITLE})
-    #link_opencv(${PROJECT_TITLE})
+    #link_RectangleBinPack(${MAIN_PROJECT})
+    #link_opencv(${MAIN_PROJECT})
 
 endmacro(qt_main)
 
@@ -118,20 +130,13 @@ macro(link_qt DST_PROJ MODULE_STRING)
 
 endmacro()
 
-macro(link_eigen)
-    #Eigen
-    set(EIGEN_VERSION "3.3.7")
-    set(EIGEN_SRC "${3RD_PARTY}/eigen/${EIGEN_VERSION}")
-    include_directories(${PROJECT_TITLE} "${EIGEN_SRC}")
-endmacro()
-
-
 ## !main project
 ######################################################
 
 #simple_main()
-#link_qt(${PROJECT_TITLE} "Core Widgets Gui")
+#link_qt(${MAIN_PROJECT} "Core Widgets Gui")
 
 qt_main("Core Widgets Gui")
-link_eigen()
-link_RectangleBinPack(${PROJECT_TITLE})
+link_eigen(${MAIN_PROJECT})
+link_RectangleBinPack(${MAIN_PROJECT})
+link_exif(${MAIN_PROJECT})
