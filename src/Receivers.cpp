@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Receivers.h"
+#include "BinpackMainWindow.h";
 #include "Utils.h"
 
 #include <QLineEdit>
@@ -9,6 +10,47 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QCheckBox>
+#include <QKeyEvent>
+#include <QDebug>
+
+#pragma region BaseReceiver
+
+BaseReceiver::BaseReceiver(BinpackMainWindow* owner) : QMainWindow(owner)
+{
+	//call child initialize
+	//this->initialize(); //this grammar is forbidden
+}
+
+BaseReceiver::~BaseReceiver()
+{
+}
+
+void BaseReceiver::keyPressEvent(QKeyEvent* event)
+{
+	switch (event->key())
+	{
+	case Qt::Key_Escape:
+		qDebug() << "Esc pressed from sub window. Closing...";
+		close();
+		break;
+	case Qt::Key_Return:	// main enter key
+	case Qt::Key_Enter:		// numpad enter key
+		qDebug() << "Enter pressed from sub window. call handleValues()";
+		handleValues();
+		break;
+	default:
+		QMainWindow::keyPressEvent(event);
+	}
+}
+
+void BaseReceiver::closeEvent(QCloseEvent* event)
+{
+	//do something when closing
+}
+
+#pragma endregion
+
+
 
 #pragma region SizeReceiver
 
@@ -24,10 +66,10 @@ public:
 };
 
 SizeReceiver::SizeReceiver(BinpackMainWindow* owner)
-	: QMainWindow(owner)
+	: BaseReceiver(owner)
 	, pImpl(new PImpl(owner))
 {
-	popup();
+	initialize();
 }
 SizeReceiver::~SizeReceiver()
 {
@@ -35,14 +77,16 @@ SizeReceiver::~SizeReceiver()
 }
 
 
-void SizeReceiver::popup()
+void SizeReceiver::initialize()
 {
 	auto* editLayout = new QGridLayout;
 	auto* validator = new QIntValidator(0, 9999, this);
 	pImpl->widEdit = new QLineEdit(this);
 	pImpl->widEdit->setValidator(validator);
+	pImpl->widEdit->setText(QString::number(pImpl->Owner->canvasSize().width()));
 	pImpl->hiEdit = new QLineEdit(this);
 	pImpl->hiEdit->setValidator(validator);
+	pImpl->hiEdit->setText(QString::number(pImpl->Owner->canvasSize().height()));
 	auto* warnLbl = new QLabel(" * Canvas will be cleared", this);
 	auto* widLbl = new QLabel("Width", this);
 	auto* hiLbl = new QLabel("Height", this);
@@ -67,19 +111,14 @@ void SizeReceiver::popup()
 	mainWidget->setLayout(editLayout);
 
 	//QObject::connect(btnWidget, &QPushButton::clicked, this, &updateValue);
-	connect(updateBtn, &QPushButton::released, this, &SizeReceiver::updateValue);
+	connect(updateBtn, &QPushButton::released, this, &SizeReceiver::handleValues);
 	connect(cancelBtn, &QPushButton::released, [=]() {this->close(); });
 
 	this->setCentralWidget(mainWidget);
 	this->setWindowTitle(QString("Resize canvas"));
 }
 
-void SizeReceiver::closeEvent(QCloseEvent* event)
-{
-	//pImpl->Owner->setEnabled(true);
-}
-
-void SizeReceiver::updateValue()
+void SizeReceiver::handleValues()
 {
 	const auto wid = pImpl->widEdit->text().toInt();
 	const auto hi = pImpl->hiEdit->text().toInt();
@@ -107,17 +146,17 @@ public:
 };
 
 RemoveIndexReceiver::RemoveIndexReceiver(BinpackMainWindow* owner, int imageCount)
-	: QMainWindow(owner)
+	: BaseReceiver(owner)
 	, pImpl(new PImpl(owner, imageCount))
 {
-	popup();
+	initialize();
 }
 RemoveIndexReceiver::~RemoveIndexReceiver()
 {
 	util::HandyDelete(pImpl);
 }
 
-void RemoveIndexReceiver::popup()
+void RemoveIndexReceiver::initialize()
 {
 	auto cbLayout = new QGridLayout;
 	const int cnt = pImpl->maxImages;
@@ -150,7 +189,7 @@ void RemoveIndexReceiver::popup()
 				box->setChecked(c);
 		}
 	);
-	connect(updateBtn, &QPushButton::released, this, &RemoveIndexReceiver::updateValue);
+	connect(updateBtn, &QPushButton::released, this, &RemoveIndexReceiver::handleValues);
 	connect(cancelBtn, &QPushButton::released, [=]() {this->close(); });
 
 	auto* mainWidget = new QWidget(this);
@@ -159,7 +198,7 @@ void RemoveIndexReceiver::popup()
 	this->setWindowTitle(QString("Remove images"));
 }
 
-void RemoveIndexReceiver::updateValue()
+void RemoveIndexReceiver::handleValues()
 {
 	std::vector<int> retval;
 

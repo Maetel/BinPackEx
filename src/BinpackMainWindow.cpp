@@ -537,15 +537,17 @@ void BinpackMainWindow::dropEvent(QDropEvent* event)
 
 void BinpackMainWindow::setCanvasSize(QSize size)
 {
-	//will be handled by SizeReceiver
-	// check pImpl->popCanvasResizer()
+	// Called by :
+	// SizeReceiver::PImpl
 	qDebug() << "Size set from SizeReceiver, size : " << size;
+	if (pImpl->canvasSize == size)
+		return;
 	pImpl->setCanvasSize(size);
 }
 void BinpackMainWindow::setRemoveImages(std::vector<int> const indices)
 {
-	//will be handled by SizeReceiver
-	// check pImpl->popCanvasResizer()
+	// Called by :
+	// RemoveIndexReceiver::PImpl
 	qDebug() << "image remove indices from RemoveIndexReceiver, size : " << indices.size();
 
 	if (indices.empty())
@@ -555,4 +557,14 @@ void BinpackMainWindow::setRemoveImages(std::vector<int> const indices)
 	}
 
 	pImpl->removeImages(indices);
+}
+
+QSize BinpackMainWindow::canvasSize() const
+{
+	return pImpl->canvasSize;
+}
+
+void BinpackMainWindow::showEvent(QShowEvent* event)
+{
+	pImpl->resetCanvas();
 }

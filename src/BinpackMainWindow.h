@@ -13,15 +13,20 @@ public:
 	QSize minimumSizeHint() const override;
 	QSize sizeHint() const override;
 
+	//methods called from child windows
+public:
+	void setCanvasSize(QSize resultSize);
+	void setRemoveImages(std::vector<int> const indicesToRemove);
+	QSize canvasSize() const;
+
+	//events
+protected:
 	//https://evileg.com/en/post/240/
 	// Drag event method
 	virtual void dragEnterEvent(QDragEnterEvent* event) override;
 	// Method for drop an object with data
 	virtual void dropEvent(QDropEvent* event) override;
-
-public slots:
-	void setCanvasSize(QSize resultSize);
-	void setRemoveImages(std::vector<int> const indicesToRemove);
+	virtual void showEvent(QShowEvent* event) override;
 
 protected:
 	class PImpl;
