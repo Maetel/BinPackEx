@@ -24,6 +24,7 @@
 #include <QFileDialog>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QKeyEvent>
 #include <QMimeData>
 
 //private classes
@@ -307,6 +308,7 @@ public:
 
 		qDebug() << "Canvas size set to " << size;
 		canvasSize = size;
+		Owner->m_canvas->setCanvasSize(canvasSize);
 
 		//if(tryBinPack())
 		//	updateCanvas();
@@ -601,7 +603,50 @@ QSize BinpackMainWindow::canvasSize() const
 	return pImpl->canvasSize;
 }
 
+void BinpackMainWindow::callCanvasResize()
+{
+	pImpl->popCanvasResizer();
+}
+
+void BinpackMainWindow::callReset()
+{
+	pImpl->askResetCanvas();
+}
+
 void BinpackMainWindow::showEvent(QShowEvent* event)
 {
 	pImpl->resetCanvas();
+}
+
+void BinpackMainWindow::keyPressEvent(QKeyEvent* event)
+{
+	if (event->type() == QKeyEvent::KeyPress)
+	{
+		if (event->matches(QKeySequence::QKeySequence::Save))
+		{
+			pImpl->saveResultImage();
+			return;
+		}
+		if (event->matches(QKeySequence::QKeySequence::Copy))
+		{
+			// copy image to clipboard
+			return;
+		}
+		if (event->matches(QKeySequence::QKeySequence::Paste))
+		{
+			// paste image from clipboard
+			return;
+		}
+	}
+
+	switch (event->key())
+	{
+	case Qt::Key_Escape:
+		break;
+	case Qt::Key_Return:
+	case Qt::Key_Enter:
+		break;
+	default:
+		QMainWindow::keyPressEvent(event);
+	}
 }

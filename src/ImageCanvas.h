@@ -5,6 +5,7 @@
 #include <QPen>
 #include "Karlsun.h"
 
+class BinpackMainWindow;
 class BinImage;
 using BinImagePtr = std::shared_ptr<BinImage>;
 
@@ -17,11 +18,12 @@ public:
 		ImageObj = 1,
 		KarlsunObj = 2,
 		IndexStringObj = 4,
-		ALL = ImageObj | KarlsunObj | IndexStringObj,
+		SelectedImageObj = 8,
+		ALL = ImageObj | KarlsunObj | IndexStringObj | SelectedImageObj,
 	};
 
 public:	
-	ImageCanvas(QWidget* parent = 0);
+	ImageCanvas(BinpackMainWindow* parent = 0);
 	QSize minimumSizeHint() const override;
 	//QSize sizeHint() const override;
 
@@ -35,6 +37,8 @@ public slots:
 	void setBinImages(std::vector<BinImagePtr> binimages);
 
 protected:
+	void keyPressEvent(QKeyEvent* event) override;
+	void mousePressEvent(QMouseEvent* event) override;
 	void paintEvent(QPaintEvent* event) override;
 
 private:

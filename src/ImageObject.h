@@ -4,6 +4,7 @@
 
 #include <QImage>
 #include <QString>
+#include <random> //for operator==
 
 //this method doesn't handle under/overflow
 template<typename TOut, typename TIn>
@@ -214,6 +215,46 @@ public:
 		clear();
 		_alloc(rhs.m_wid, rhs.m_hi, rhs.m_data);
 		return *this;
+	}
+
+	//if any of imagedata is empty, returns false
+	// compares at least N random-index values and returns true if all the same
+	// therefore, operator== for type T must be predefined
+	bool operator==(ImageData const& rhs /*, const int compareAtLeast = 100*/) const
+	{
+		if (empty() || rhs.empty())
+			return false;
+		if (rhs.pixelCount() != pixelCount())
+			return false;
+
+		//compare at least 100 values
+		//const int minThres = compareAtLeast;
+		constexpr int minThres = 100;
+
+		//compare random values
+		const int pxCnt = pixeCount();
+		if (pxCnt <= minThres)
+		{
+			for (auto idx = 0; idx < pxCnt)
+				if (this->at(idx) != rhs(idx))
+					return false;
+		}
+		else
+		{
+			std::random_device device;
+			std::mt19937 generator(device());
+			std::uniform_int_distribution<int> distribution(0, pxCnt);
+			
+			for (auto idx = 0; idx < minThres)
+			{
+				const int randomIdx = distribution(generator);
+				if (this->at(distribution(randomIdx)) != rhs(randomIdx))
+					return false;
+			}
+				
+		}
+
+		return true;
 	}
 
 	~ImageData() { clear(); }

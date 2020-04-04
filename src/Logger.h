@@ -5,6 +5,7 @@
 #include <QByteArray>
 #include <QMainWindow>
 #include <QTextEdit>
+#include <QKeyEvent>
 
 static QTextEdit* g_logEdit = 0;
 
@@ -18,6 +19,16 @@ public:
 	QSize sizeHint() const override
 	{
 		return QSize(1600, 400);
+	}
+
+protected:
+	void keyPressEvent(QKeyEvent* event) override
+	{
+		switch (event->key())
+		{
+		case Qt::Key_Escape:
+			close();
+		}
 	}
 };
 

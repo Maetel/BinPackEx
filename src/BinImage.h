@@ -7,6 +7,8 @@
 class BinImage
 {
 public:
+	using Ptr = std::shared_ptr<BinImage>;
+	using ConstPtr = const std::shared_ptr<BinImage>;
 	ImageDataRGBPtr imagePtr = 0;
 	int imageIndex = -1; // Zero base index
 	bool isFlipped = false;
