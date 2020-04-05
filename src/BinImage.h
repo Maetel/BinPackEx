@@ -39,6 +39,21 @@ public:
 	}
 
 public:
+
+	//if is flipped, update 
+	ImageDataRGBPtr eval()
+	{
+		if (!isFlipped)
+			return imagePtr;
+
+		//debug
+		{
+			imagePtr->rotate()->save("C:/work/cpp/BinPackEx/resources/images/rotated.jpg");
+		}
+
+		return imagePtr->rotate();
+	}
+
 	void updateKarlsun(int offset, int roundPx = 0, QColor drawColor = Qt::red)
 	{
 		if (offset <= 0 || roundPx < 0)

@@ -23,6 +23,7 @@ public:
 	// call from canvas
 	void callCanvasResize();
 	void callReset();
+	void callImageRemove(std::vector<BinImagePtr> image2remove);
 
 	//events
 protected:

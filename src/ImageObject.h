@@ -513,6 +513,12 @@ public:
 		return buf;
 	}
 
+	//rotate this
+	std::shared_ptr<ImageData<T>> rotate(bool clockwise = true)
+	{
+		return ImageData<T>::rotate(*this, clockwise);
+	}
+
 	static ImageData<T>::Ptr rotate(ImageData<T> const& input, bool clockwise = true)
 	{
 		const int wid = input.height(), hi = input.width();
@@ -524,7 +530,7 @@ public:
 		{
 			buf->for_each_px(isParallel, [&input, wid, hi](int x, int y, auto& val)
 			{
-				val = input(y, wid - x);
+				val = input(y, wid - 1 - x);
 			});
 		}
 		else //counter-clockwise

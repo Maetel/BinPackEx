@@ -7,6 +7,7 @@
 #include <QKeyEvent>
 #include <QMenu>
 #include <QDebug>
+#include <QPointer>
 #include "BinImage.h"
 
 class ImageCanvas::Internal
@@ -28,12 +29,16 @@ public:
 	std::vector<QImage> m_binQImages;
 	std::vector<Karlsun> m_karlsuns;
 
-	struct EventState
+	struct _EventState
 	{
+		_EventState() {}
+		~_EventState() {}
 		std::vector<BinImagePtr> selectedBinImages;
 
+		std::vector<int> selectedIndices() { std::vector<int> retval; for (BinImagePtr ptr : selectedBinImages) { retval.push_back(ptr->imageIndex); } return retval; }
 		void reset() { selectedBinImages.clear(); }
 		bool notSelected() const { return selectedBinImages.empty(); };
+		bool anySelected() const { return !selectedBinImages.empty(); };
 		BinImagePtr oneSelected() const { if (selectedBinImages.size() == 1) return selectedBinImages.at(0); else return nullptr; }
 		bool multipleSelected() const { return selectedBinImages.size() > 1; }
 		std::vector<QRect> selectedRects() const 
@@ -44,7 +49,8 @@ public:
 			return retval;
 		}
 	};
-	EventState m_eventState;
+	using EventState = std::shared_ptr<_EventState>;
+	EventState m_eventState = std::make_shared<_EventState>();
 
 	std::atomic_int m_canvasPadding = 20;
 	QPoint canvasPadding() const { return QPoint(m_canvasPadding, m_canvasPadding); }
@@ -66,26 +72,27 @@ public:
 	void updateSelected(QPoint actualPos, bool keepPreviousSelected = false)
 	{
 		auto& state = m_eventState;
-		if (state.notSelected())
+
+		if (state->notSelected())
 		{
-			state.reset();
+			state->reset();
 			if (auto binImg = findBinImageContaning(actualPos))
-				state.selectedBinImages.push_back(binImg);
+				state->selectedBinImages.push_back(binImg);
 		}
 		else //is rect selected already
 		{
-			if (auto preSelected = state.oneSelected())
+			if (auto preSelected = state->oneSelected())
 			{
 				if (preSelected->result.contains(actualPos))
 				{
 					if(!keepPreviousSelected)
-						state.reset();
+						state->reset();
 					return;
 				}
 				else if (auto otherImageFound = findBinImageContaning(actualPos))
 				{
-					state.reset();
-					state.selectedBinImages.push_back(otherImageFound);
+					state->reset();
+					state->selectedBinImages.push_back(otherImageFound);
 				}
 				else //clicked on white canvas
 				{
@@ -105,23 +112,26 @@ public:
 		const auto globalPos= mousePos->globalPos();
 		const auto localPos = mousePos->pos();
 
+		//when clicked on gray boundary area
 		if (!canvasRect().contains(localPos))
 		{
 			if(isLeft)
 			{
-				//when clicked on gray boundary area
-				m_eventState.reset();
-				update();
+				m_eventState->reset();
 			}
 			if (isRight)
 			{
-				QMenu* dropMenu = new QMenu(Owner);
-				QAction* resizeAction = new QAction("Resize");
-				QAction* resetAction = new QAction("Reset");
-				dropMenu->addAction(resizeAction);
-				dropMenu->addAction(resetAction);
-				Owner->connect(resizeAction, &QAction::triggered, [=](bool c) { qDebug() << "Resize action"; Owner->callCanvasResize(); });
-				Owner->connect(resetAction, &QAction::triggered, [=](bool c) { qDebug() << "Reset canvas action"; Owner->callReset(); });
+				static QMenu* dropMenu;
+				if (!dropMenu)
+				{
+					dropMenu = new QMenu(Owner);
+					static QAction* resizeAction = new QAction("Resize");
+					static QAction* resetAction = new QAction("Reset");
+					dropMenu->addAction(resizeAction);
+					dropMenu->addAction(resetAction);
+					Owner->connect(resizeAction, &QAction::triggered, [=](bool c) { qDebug() << "Resize action"; Owner->callCanvasResize(); });
+					Owner->connect(resetAction, &QAction::triggered, [=](bool c) { qDebug() << "Reset canvas action"; Owner->callReset(); });
+				}
 				dropMenu->popup(globalPos);
 			}
 			return;
@@ -129,22 +139,36 @@ public:
 		
 		const QPoint actualPos = localPos - canvasPadding();
 		
-		//update selection regardless of left/right
-
 		if (isLeft)
 		{
+			if (m_eventState->multipleSelected())
+				m_eventState->reset();
 			updateSelected(actualPos);
-
 		}
 		if (isRight)
 		{
-			const bool keepPrevious = true;
-			updateSelected(actualPos, keepPrevious);
-			QMenu* dropMenu = new QMenu(Owner);
-			QAction* someImageAction = new QAction("someImageAction");
-			dropMenu->addAction(someImageAction);
-			Owner->connect(someImageAction, &QAction::triggered, [](bool c) { qDebug() << "someImageAction"; });
+			if (m_eventState->notSelected() || m_eventState->oneSelected())
+			{
+				const bool keepPrevious = true;
+				updateSelected(actualPos, keepPrevious);
+			}
+
+			//open menu
+			static QMenu* dropMenu;
+			if (!dropMenu)
+			{
+				dropMenu = new QMenu(Owner);
+				static QAction* remove = new QAction("Remove image", dropMenu);
+				dropMenu->addAction(remove);
+				Owner->connect(remove, &QAction::triggered, [=](bool c) 
+				{ 
+					qDebug() << "Remove image action from image canvas"; 
+					//Owner->callImageRemove(m_eventState->selectedBinImages);
+					Owner->setRemoveImages(m_eventState->selectedIndices());
+				});
+			}
 			dropMenu->popup(globalPos);
+			
 		}
 		update();
 	}
@@ -166,15 +190,15 @@ public:
 	{
 		m_binImages.clear();
 		m_binQImages.clear();
-		m_eventState.reset();
+		m_eventState->reset();
 		m_karlsuns.clear();
 	}
 };
 
 
 ImageCanvas::ImageCanvas(BinpackMainWindow* parent)
-	: QWidget(parent)
-	, pImpl(new Internal(parent))
+	: pImpl(new Internal(parent))	// Allocate internal first, than QWidget
+	, QWidget(parent)
 {
 	QPalette pal = palette();
 
@@ -182,6 +206,8 @@ ImageCanvas::ImageCanvas(BinpackMainWindow* parent)
 	pal.setColor(QPalette::Background, Qt::darkGray);
 	this->setAutoFillBackground(true);
 	this->setPalette(pal);
+
+	hideObejct(CanvasObjectType::IndexStringObj);
 }
 
 QSize ImageCanvas::minimumSizeHint() const
@@ -238,10 +264,11 @@ void ImageCanvas::setBinImages(std::vector<BinImagePtr> binImages)
 	pImpl->m_binImages = binImages;
 	pImpl->m_binQImages.clear();
 	pImpl->m_karlsuns.clear();
-	pImpl->m_eventState.reset();
+	pImpl->m_eventState->reset();
 
-	for (auto ptr : binImages)
+	for (BinImagePtr ptr : binImages)
 	{
+		//QImage buf = ptr->eval()->toQImage().copy();
 		QImage buf = ptr->imagePtr->toQImage().copy();
 		buf.setOffset(ptr->result.topLeft());
 		pImpl->m_binQImages.push_back(buf);
@@ -254,11 +281,22 @@ void ImageCanvas::setBinImages(std::vector<BinImagePtr> binImages)
 
 void ImageCanvas::keyPressEvent(QKeyEvent* event)
 {
+	if (event->type() != QKeyEvent::KeyPress)
+		return;
+
+	if (event->matches(QKeySequence::QKeySequence::SelectAll))
+	{
+		qDebug() << "Ctrl + A on canvas";
+		pImpl->m_eventState->selectedBinImages = pImpl->m_binImages;
+		update();
+		return;
+	}
+
 	switch (event->key())
 	{
 	case Qt::Key_Escape:
 		qDebug() << "Esc pressed from canvas";
-		pImpl->m_eventState.reset();
+		pImpl->m_eventState->reset();
 		break;
 	case Qt::Key_Return:	// main enter key
 	case Qt::Key_Enter:		// numpad enter key
@@ -267,6 +305,8 @@ void ImageCanvas::keyPressEvent(QKeyEvent* event)
 	default:
 		QWidget::keyPressEvent(event);
 	}
+
+	update();
 }
 
 void ImageCanvas::mousePressEvent(QMouseEvent* event)
@@ -276,6 +316,7 @@ void ImageCanvas::mousePressEvent(QMouseEvent* event)
 	
 	if(leftClicked || rightClicked)
 		pImpl->handleClick(event, leftClicked, rightClicked);
+	update();
 }
 
 void ImageCanvas::paintEvent(QPaintEvent* event)
@@ -335,8 +376,10 @@ void ImageCanvas::paintEvent(QPaintEvent* event)
 	}
 
 	//show image boundary when clicked
-	if (auto& state = pImpl->m_eventState; pImpl->showSelectedImage() && !state.notSelected())
+	if (auto state = pImpl->m_eventState)
 	{
+		if (!pImpl->showSelectedImage() || state->notSelected())
+			return;
 		auto prevPen = painter.pen();
 		
 		QPen boundaryPen;
@@ -344,7 +387,7 @@ void ImageCanvas::paintEvent(QPaintEvent* event)
 		boundaryPen.setColor(Qt::darkBlue);
 		boundaryPen.setWidth(2);
 		painter.setPen(boundaryPen);
-		for (auto rect : state.selectedRects())
+		for (auto rect : state->selectedRects())
 			painter.drawRect(paddedRect(rect));
 
 		painter.setPen(prevPen);

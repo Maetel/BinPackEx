@@ -153,6 +153,10 @@ public:
 			return retval;
 		}
 		
+		//update image itself if rotated
+		for (auto& ptr : binImages)
+			ptr->imagePtr = ptr->eval();
+
 		retval = makeFinalImage();
 
 		return retval;

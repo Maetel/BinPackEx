@@ -233,9 +233,7 @@ public:
 			return;
 		}
 
-		static RemoveIndexReceiver* receiver = 0;
-		util::HandyDelete(receiver);
-		receiver = new RemoveIndexReceiver(Owner, imageCount);
+		static RemoveIndexReceiver* receiver = new RemoveIndexReceiver(Owner, imageCount);
 		receiver->show();
 	}
 
@@ -280,7 +278,7 @@ public:
 		imageManager.storeCurState();
 		if (imageManager.removeBinImage(indices))
 		{
-			Notify("Remove image", "Image removed");
+			Notify("Remove image", QString("%1 image(s) removed").arg(indices.size()));
 			if (imageManager.imageCount())
 			{
 				if (!tryBinPack())
@@ -371,7 +369,7 @@ public:
 		ca.controlToolbar->addAction(ca.showKsAct);
 
 		ca.showImgIdxAct = new QAction("View index");
-		util::actionPreset(ca.showImgIdxAct, true, true, true);
+		util::actionPreset(ca.showImgIdxAct, true, true, false);
 		ca.controlToolbar->addAction(ca.showImgIdxAct);
 		//!view actions
 
@@ -613,6 +611,15 @@ void BinpackMainWindow::callReset()
 	pImpl->askResetCanvas();
 }
 
+void BinpackMainWindow::callImageRemove(std::vector<BinImagePtr> image2remove)
+{
+	std::vector<int> indices;
+	for (auto ptr : image2remove)
+		indices.push_back(ptr->imageIndex);
+	pImpl->removeImages(indices);
+}
+
+
 void BinpackMainWindow::showEvent(QShowEvent* event)
 {
 	pImpl->resetCanvas();
@@ -639,14 +646,17 @@ void BinpackMainWindow::keyPressEvent(QKeyEvent* event)
 		}
 	}
 
-	switch (event->key())
-	{
-	case Qt::Key_Escape:
-		break;
-	case Qt::Key_Return:
-	case Qt::Key_Enter:
-		break;
-	default:
-		QMainWindow::keyPressEvent(event);
-	}
+	m_canvas->keyPressEvent(event);
+	
+	//switch (event->key())
+	//{
+	//case Qt::Key_Escape:
+	//	break;
+	//case Qt::Key_Return:
+	//case Qt::Key_Enter:
+	//	break;
+	//default:
+	//	//QMainWindow::keyPressEvent(event);
+	//	m_canvas->keyPressEvent(event);
+	//}
 }

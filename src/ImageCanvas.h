@@ -36,8 +36,9 @@ public slots:
 	void setCanvasSize(QSize);
 	void setBinImages(std::vector<BinImagePtr> binimages);
 
-protected:
+	//called from parent
 	void keyPressEvent(QKeyEvent* event) override;
+protected:
 	void mousePressEvent(QMouseEvent* event) override;
 	void paintEvent(QPaintEvent* event) override;
 
