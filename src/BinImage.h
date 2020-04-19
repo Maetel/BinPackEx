@@ -46,11 +46,6 @@ public:
 		if (!isFlipped)
 			return imagePtr;
 
-		//debug
-		{
-			imagePtr->rotate()->save("C:/work/cpp/BinPackEx/resources/images/rotated.jpg");
-		}
-
 		return imagePtr->rotate();
 	}
 

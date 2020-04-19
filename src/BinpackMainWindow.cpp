@@ -48,6 +48,9 @@ public:
 	bool keepPreviousImage = true;
 	ImageDataRGBPtr finalImage;
 	QSize canvasSize{ 1600,1000 };
+	KarlsunStyle globalKarlsunStyle = KarlsunStyle::DefaultStyle();
+	int resultImageDPI = 300;
+	int resultImageQuality = 100; // from 0 ~ 100
 
 	template <typename T = void>
 	T Notify(QString title, QString msg) {}
@@ -162,9 +165,30 @@ public:
 		updateInfoToolbar();
 	}
 
-	void updateKarlsun(std::vector<KarlsunStyle> styles = std::vector<KarlsunStyle>())
+	void setGlobalKarlsunStyle()
 	{
-		qDebug() << "Updating Karlsun";
+		qDebug() << "setKarlsunStyles";
+		if (!imageManager.isAble())
+		{
+			qWarning() << "image mgr is not able to update karlsun";
+			return;
+		}
+
+		for (auto ptr : imageManager.binImages)
+		{
+			ptr->updateKarlsun(
+				globalKarlsunStyle.offset, 
+				globalKarlsunStyle.roundPixel,
+				globalKarlsunStyle.color
+			);
+		}
+
+		sendBinImages2Canvas();
+	}
+
+	void setKarlsunStyles(std::vector<KarlsunStyle> styles = std::vector<KarlsunStyle>())
+	{
+		qDebug() << "setKarlsunStyles";
 		if (!imageManager.isAble())
 		{
 			qWarning() << "image mgr is not able to update karlsun";
@@ -175,15 +199,16 @@ public:
 		//preset for debug
 
 		const auto imageCount = imageManager.imageCount();
-		const int offset = 20;
-		const int roundPixel = 10;
-		const QColor color = Qt::red;
-
-		//while(styles.)
+		
+		//if empty, put global style
 		if (styles.empty())
+			styles.emplace_back(KarlsunStyle::DefaultStyle());
+		
+		if (int styleCount = (int)styles.size(); styleCount < imageCount)
 		{
-			for (int idx = 0; idx < imageCount; ++idx)
-				styles.emplace_back(KarlsunStyle{ offset, roundPixel, color });
+			//duplicate last style
+			for (int idx = styleCount; idx < imageCount; ++idx)
+				styles.emplace_back(styles.back());
 		}
 
 		int failureCount = 0;
@@ -208,9 +233,61 @@ public:
 		}
 			
 	}
-	void setKarlsunStyle()
-	{
 
+	inline BaseReceiver* selectReceiver(ReceiverType recType)
+	{
+		switch (recType)
+		{
+		case ReceiverType::CanvasResizer:
+			return new SizeReceiver(Owner);
+			break;
+		case ReceiverType::DPISetter:
+			return new DPIReceiver(Owner);
+			break;
+		case ReceiverType::ImageRemover:
+			return new RemoveIndexReceiver(Owner, imageManager.imageCount());
+			break;
+		case ReceiverType::KarlsunSetter:
+			return new KarlsunStyleReceiver(Owner);
+			break;
+		}
+		return nullptr;
+	}
+
+	void popReceiver(ReceiverType recType)
+	{
+		static BaseReceiver* receiver = 0;
+		util::HandyDelete(receiver);
+
+		if (recType == ReceiverType::ImageRemover)
+		{
+			if (const int imageCount = imageManager.imageCount(); !imageCount)
+			{
+				Notify(KorStr("이미지 제거"), KorStr("제거할 이미지가 없습니다"));
+				return;
+			}
+		}
+
+		receiver = selectReceiver(recType);
+		receiver->show();
+	}
+
+	void popKarlsunStyleSetter()
+	{
+		qDebug() << "Popping canvas resizer";
+		static KarlsunStyleReceiver* receiver = 0;
+		util::HandyDelete(receiver);
+		receiver = new KarlsunStyleReceiver(Owner);
+		receiver->show();
+	}
+
+	void popDPISetter()
+	{
+		qDebug() << "Popping DPI setter";
+		static DPIReceiver* receiver = 0;
+		util::HandyDelete(receiver);
+		receiver = new DPIReceiver(Owner);
+		receiver->show();
 	}
 
 	void popCanvasResizer()
@@ -229,11 +306,13 @@ public:
 		const int imageCount = imageManager.imageCount();
 		if (!imageCount)
 		{
-			Notify("Remove image", "No images to remove");
+			Notify(KorStr("이미지 제거"), KorStr("제거할 이미지가 없습니다"));
 			return;
 		}
 
-		static RemoveIndexReceiver* receiver = new RemoveIndexReceiver(Owner, imageCount);
+		static RemoveIndexReceiver* receiver = 0;
+		util::HandyDelete(receiver);
+		receiver = new RemoveIndexReceiver(Owner, imageCount);
 		receiver->show();
 	}
 
@@ -244,7 +323,7 @@ public:
 
 		if (!mgr.isAble())
 		{
-			Notify("Auto nesting", "Auto nesting disabled (Image not loaded)");
+			Notify(KorStr("자동 네스팅"), KorStr("네스팅 실패(이미지가 없습니다)"));
 			resetCanvas();
 			return false;
 		}
@@ -259,14 +338,14 @@ public:
 #endif
 		if (this->finalImage = mgr.binPack(BINPACK_LOGGER))
 		{
+			setGlobalKarlsunStyle();
 			sendBinImages2Canvas();
-			updateKarlsun();
-			setKarlsunStyle();
+			//setKarlsunStyles();
 			return true;
 		}
 		else
 		{
-			Notify("Auto nesting", "Failed to nest images");
+			Notify(KorStr("자동 네스팅"), KorStr("네스팅에 실패했습니다"));
 			return false;
 		}
 
@@ -278,11 +357,12 @@ public:
 		imageManager.storeCurState();
 		if (imageManager.removeBinImage(indices))
 		{
-			Notify("Remove image", QString("%1 image(s) removed").arg(indices.size()));
+			Notify(KorStr("이미지 제거"), QString("%1%2").arg(indices.size()).arg(KorStr("개의 이미지가 제거되었습니다")));
 			if (imageManager.imageCount())
 			{
 				if (!tryBinPack())
 				{
+					qDebug() << "Failed bin packing";
 					imageManager.restoreLastState();
 				}
 				updateCanvas();
@@ -296,7 +376,7 @@ public:
 		}
 		else
 		{
-			Notify("Remove image", "Failed to remove images");
+			Notify(KorStr("이미지 제거"), KorStr("이미지 제거 실패"));
 		}
 	}
 
@@ -336,6 +416,8 @@ public:
 		QAction* keepPrevAct = 0;
 		QAction* resetAct = 0;
 		QAction* canvasResizeAct = 0;
+		QAction* karlsunStyleAct = 0;
+		QAction* setDPIAct = 0;
 		QAction* removeImageAct = 0;
 	};
 	ControlToolbar controlToolbar;
@@ -348,11 +430,11 @@ public:
 		ca.controlToolbar = new QToolBar(Owner);
 
 		//file actions
-		ca.openFileAct = new QAction("Open files");
+		ca.openFileAct = new QAction(KorStr("이미지 열기"));
 		util::actionPreset(ca.openFileAct, true, false, false);
 		ca.controlToolbar->addAction(ca.openFileAct);
 
-		ca.saveImageAct = new QAction("Save result image");
+		ca.saveImageAct = new QAction(KorStr("결과 이미지 저장"));
 		util::actionPreset(ca.saveImageAct, true, false, false);
 		ca.controlToolbar->addAction(ca.saveImageAct);
 		//!file actions
@@ -360,15 +442,15 @@ public:
 		ca.controlToolbar->addSeparator();
 
 		//view actions
-		ca.showImgAct = new QAction("View image");
+		ca.showImgAct = new QAction(KorStr("이미지 보기"));
 		util::actionPreset(ca.showImgAct, true, true, true);
 		ca.controlToolbar->addAction(ca.showImgAct);
 
-		ca.showKsAct = new QAction("View karlsun");
+		ca.showKsAct = new QAction(KorStr("칼선 보기"));
 		util::actionPreset(ca.showKsAct, true, true, true);
 		ca.controlToolbar->addAction(ca.showKsAct);
 
-		ca.showImgIdxAct = new QAction("View index");
+		ca.showImgIdxAct = new QAction(KorStr("번호 보기"));
 		util::actionPreset(ca.showImgIdxAct, true, true, false);
 		ca.controlToolbar->addAction(ca.showImgIdxAct);
 		//!view actions
@@ -377,19 +459,27 @@ public:
 
 
 		//!control actions
-		ca.keepPrevAct = new QAction("Keep previous images");
+		ca.keepPrevAct = new QAction(KorStr("이미지 추가 모드"));
 		util::actionPreset(ca.keepPrevAct, true, true, keepPreviousImage);
 		ca.controlToolbar->addAction(ca.keepPrevAct);
 
-		ca.resetAct = new QAction("Reset");
+		ca.resetAct = new QAction(KorStr("리셋"));
 		util::actionPreset(ca.resetAct, true, false, false);
 		ca.controlToolbar->addAction(ca.resetAct);
 
-		ca.canvasResizeAct = new QAction("Set size");
+		ca.canvasResizeAct = new QAction(KorStr("캔버스 사이즈"));
 		util::actionPreset(ca.canvasResizeAct, true, false, false);
 		ca.controlToolbar->addAction(ca.canvasResizeAct);
 
-		ca.removeImageAct = new QAction("Remove images");
+		ca.karlsunStyleAct = new QAction(KorStr("칼선 설정"));
+		util::actionPreset(ca.karlsunStyleAct, true, false, false);
+		ca.controlToolbar->addAction(ca.karlsunStyleAct);
+
+		ca.setDPIAct = new QAction(KorStr("DPI 설정"));
+		util::actionPreset(ca.setDPIAct, true, false, false);
+		ca.controlToolbar->addAction(ca.setDPIAct);
+
+		ca.removeImageAct = new QAction(KorStr("이미지 제거"));
 		util::actionPreset(ca.removeImageAct, true, false, false);
 		ca.controlToolbar->addAction(ca.removeImageAct);
 		//!control actions
@@ -405,7 +495,9 @@ public:
 		QLabel* canvasInfoTitleLabel = 0;
 		QLabel* widthLabel = 0;
 		QLabel* heightLabel = 0;
+		QLabel* sizeInMmLabel = 0;
 		QLabel* itemCountLabel = 0;
+		QLabel* outputDPILabel = 0;
 	};
 	InfoToolbar infoToolbar;
 
@@ -432,15 +524,16 @@ public:
 	{
 		if (!finalImage)
 		{
-			Notify("Save image", "No image to save!");
+			Notify(KorStr("이미지 저장"), KorStr("저장할 이미지가 없습니다"));
 			return;
 		}
 
-		const auto f = QFileDialog::getSaveFileName(Owner, "Save image", "", "Jpg image (*.jpg)");
+		const auto f = QFileDialog::getSaveFileName(Owner, KorStr("이미지 저장"), "", "Jpg image (*.jpg)");
 		if (f.isEmpty())
 			return;
 
-		finalImage->save(f);
+		resultImageQuality = std::clamp(resultImageQuality, 0, 100);
+		finalImage->save(f, resultImageQuality, resultImageDPI);
 	}
 
 	void createInfoToolbar()
@@ -456,13 +549,17 @@ public:
 		it.canvasInfoTitleLabel = new QLabel(Owner);
 		it.widthLabel = new QLabel(Owner);
 		it.heightLabel = new QLabel(Owner);
+		it.sizeInMmLabel = new QLabel(Owner);
 		it.itemCountLabel = new QLabel(Owner);
+		it.outputDPILabel = new QLabel(Owner);
 		canvasInfoLayout->addWidget(it.canvasInfoTitleLabel);
+		it.infoToolbar->addWidget(it.canvasInfoWidget);
+		canvasInfoLayout->addWidget(it.outputDPILabel);
 		canvasInfoLayout->addWidget(it.widthLabel);
 		canvasInfoLayout->addWidget(it.heightLabel);
+		canvasInfoLayout->addWidget(it.sizeInMmLabel);
 		canvasInfoLayout->addWidget(it.itemCountLabel);
 		it.canvasInfoWidget->setLayout(canvasInfoLayout);
-		it.infoToolbar->addWidget(it.canvasInfoWidget);
 		it.infoToolbar->addSeparator();
 
 		Owner->addToolBar(InfoToolbarArea, it.infoToolbar);
@@ -474,10 +571,15 @@ public:
 	{
 		auto& it = infoToolbar;
 
-		it.canvasInfoTitleLabel->setText("Canvas Info");
-		it.widthLabel->setText(QString("%1%2").arg("Width : ").arg(canvasSize.width()));
-		it.heightLabel->setText(QString("%1%2").arg("Height : ").arg(canvasSize.height()));
-		it.itemCountLabel->setText(QString("%1%2").arg("Images : ").arg(imageManager.imageCount()));
+		it.canvasInfoTitleLabel->setText(KorStr("캔버스 정보"));
+		it.widthLabel->setText(QString("%1%2px").arg(KorStr("가로 : ")).arg(canvasSize.width()));
+		it.heightLabel->setText(QString("%1%2px").arg(KorStr("세로 : ")).arg(canvasSize.height()));
+		it.itemCountLabel->setText(QString("%1%2").arg(KorStr("이미지 개수 : ")).arg(imageManager.imageCount()));
+		it.outputDPILabel->setText(QString("%1%2").arg("DPI : ").arg(resultImageDPI));
+
+		const double widInMm = util::px2mm(canvasSize.width(), resultImageDPI);
+		const double hiInMm = util::px2mm(canvasSize.height(), resultImageDPI);
+		it.sizeInMmLabel->setText(QString("%3(mm) : %1 * %2").arg(QString::number(widInMm, 'f', 1)).arg(QString::number(hiInMm, 'f', 1)).arg(KorStr("사이즈")));
 	}
 
 	void createCanvas()
@@ -497,7 +599,7 @@ public:
 	void askResetCanvas()
 	{
 		qDebug() << "Asking reset canvas";
-		if (Notify<bool>("Reset canvas\?", "All changes will be deleted"))
+		if (Notify<bool>(KorStr("캔버스 초기화"), KorStr("모든 내용이 제거됩니다")))
 		{
 			resetCanvas();
 		}
@@ -514,8 +616,11 @@ public:
 		connect(ct.showImgIdxAct, &QAction::triggered, [=](bool c)	{ this->showImageIndex(c); });
 		connect(ct.keepPrevAct, &QAction::triggered, [=](bool c)	{ this->keepPreviousImage = c; });
 		connect(ct.resetAct, &QAction::triggered, [=](bool c)		{ this->askResetCanvas(); });
-		connect(ct.canvasResizeAct, &QAction::triggered, [=](bool c){ this->popCanvasResizer(); });
-		connect(ct.removeImageAct, &QAction::triggered, [=](bool c){ this->popImageRemover(); });
+
+		connect(ct.canvasResizeAct, &QAction::triggered, [=](bool c)	{ this->popReceiver(ReceiverType::CanvasResizer); });
+		connect(ct.karlsunStyleAct, &QAction::triggered, [=](bool c)	{ this->popReceiver(ReceiverType::KarlsunSetter); });
+		connect(ct.setDPIAct, &QAction::triggered, [=](bool c)			{ this->popReceiver(ReceiverType::DPISetter); });
+		connect(ct.removeImageAct, &QAction::triggered, [=](bool c)		{ this->popReceiver(ReceiverType::ImageRemover); });
 		//
 	}
 
@@ -589,11 +694,27 @@ void BinpackMainWindow::setRemoveImages(std::vector<int> const indices)
 
 	if (indices.empty())
 	{
-		pImpl->Notify("Remove image", "No image selected");
+		pImpl->Notify(KorStr("이미지 제거"), KorStr("제거할 이미지가 없습니다"));
 		return;
 	}
 
 	pImpl->removeImages(indices);
+}
+void BinpackMainWindow::setGlobalKarlsunStyle(KarlsunStyle setter)
+{
+	qDebug() << "Size set from setGlobalKarlsunStyle. Offset/Rounding : " << setter.offset << "/" << setter.roundPixel;
+	pImpl->globalKarlsunStyle = setter;
+	pImpl->setGlobalKarlsunStyle();
+}
+
+void BinpackMainWindow::setDPI(int DPI)
+{
+	if (DPI <= 0)
+		DPI = 300;
+
+	qDebug() << "Size set from setDPI. Input DPI : " << DPI;
+	pImpl->resultImageDPI = DPI;
+	pImpl->updateInfoToolbar();
 }
 
 QSize BinpackMainWindow::canvasSize() const
@@ -601,9 +722,29 @@ QSize BinpackMainWindow::canvasSize() const
 	return pImpl->canvasSize;
 }
 
+KarlsunStyle BinpackMainWindow::karlsunStyle() const
+{
+	return pImpl->globalKarlsunStyle;
+}
+
+int BinpackMainWindow::DPI() const
+{
+	return pImpl->resultImageDPI;
+}
+
 void BinpackMainWindow::callCanvasResize()
 {
 	pImpl->popCanvasResizer();
+}
+
+void BinpackMainWindow::callSetGlobalKarlsunStyle()
+{
+	pImpl->popKarlsunStyleSetter();
+}
+
+void BinpackMainWindow::callSetDPI()
+{
+	pImpl->popDPISetter();
 }
 
 void BinpackMainWindow::callReset()

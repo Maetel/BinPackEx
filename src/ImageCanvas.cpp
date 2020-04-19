@@ -1,4 +1,5 @@
 #include "BinpackMainWindow.h"
+#include "Utils.h"
 //#include "ImageCanvas.h"
 #include <QPainter>
 #include <QRectF>
@@ -125,8 +126,8 @@ public:
 				if (!dropMenu)
 				{
 					dropMenu = new QMenu(Owner);
-					static QAction* resizeAction = new QAction("Resize");
-					static QAction* resetAction = new QAction("Reset");
+					static QAction* resizeAction = new QAction(KorStr("사이즈 설정"));
+					static QAction* resetAction = new QAction(KorStr("리셋"));
 					dropMenu->addAction(resizeAction);
 					dropMenu->addAction(resetAction);
 					Owner->connect(resizeAction, &QAction::triggered, [=](bool c) { qDebug() << "Resize action"; Owner->callCanvasResize(); });
@@ -158,7 +159,7 @@ public:
 			if (!dropMenu)
 			{
 				dropMenu = new QMenu(Owner);
-				static QAction* remove = new QAction("Remove image", dropMenu);
+				static QAction* remove = new QAction(KorStr("이미지 제거"), dropMenu);
 				dropMenu->addAction(remove);
 				Owner->connect(remove, &QAction::triggered, [=](bool c) 
 				{ 

@@ -3,36 +3,38 @@
 #include <QRect>
 #include <QColor>
 
+struct KarlsunStyle
+{
+	static KarlsunStyle DefaultStyle() { return KarlsunStyle{ 20, 10, Qt::red }; }
+
+	KarlsunStyle() = default;
+	KarlsunStyle(int Offset, int RoundPixel, QColor Color = Qt::red) : offset(Offset), roundPixel(RoundPixel), color(Color) {};
+	KarlsunStyle(KarlsunStyle const&) = default;
+	KarlsunStyle(KarlsunStyle&&) = default;
+	KarlsunStyle& operator=(KarlsunStyle const&) = default;
+	KarlsunStyle& operator=(KarlsunStyle&&) = default;
+
+	int offset = -1;
+	int roundPixel = 0;
+	QColor color = Qt::red;
+
+	bool operator==(KarlsunStyle const& rhs) const
+	{
+		return
+			(offset == rhs.offset) &&
+			(roundPixel == rhs.roundPixel) &&
+			(color == rhs.color)
+			;
+	}
+
+	bool isUsable() const
+	{
+		return !(offset < 0 || roundPixel < 0);
+	}
+};
 
 struct Karlsun
 {
-	struct KarlsunStyle
-	{
-		KarlsunStyle() = default;
-		KarlsunStyle(KarlsunStyle const&) = default;
-		KarlsunStyle(KarlsunStyle&&) = default;
-		KarlsunStyle& operator=(KarlsunStyle const&) = default;
-		KarlsunStyle& operator=(KarlsunStyle&&) = default;
-
-		int offset = -1;
-		int roundPixel = 0;
-		QColor color = Qt::red;
-
-		bool operator==(KarlsunStyle const& rhs) const
-		{
-			return
-				(offset == rhs.offset) &&
-				(roundPixel == rhs.roundPixel) &&
-				(color == rhs.color)
-				;
-		}
-
-		bool isUsable() const
-		{
-			return !(offset < 0 && roundPixel < 0);
-		}
-	};
-
 	//accessable variables
 	QRect rect;
 	KarlsunStyle style;
@@ -84,5 +86,3 @@ struct Karlsun
 		return (!rect.isEmpty() && imageIndex != -1 && style.isUsable());
 	}
 };
-
-using KarlsunStyle = Karlsun::KarlsunStyle;
