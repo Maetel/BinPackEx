@@ -498,6 +498,10 @@ public:
 		QLabel* sizeInMmLabel = 0;
 		QLabel* itemCountLabel = 0;
 		QLabel* outputDPILabel = 0;
+
+		QWidget* karlsunInfoWidget = 0;
+		QLabel* karlsunOffsetLabel = 0;
+		QLabel* karlsunRoundingLabel = 0;
 	};
 	InfoToolbar infoToolbar;
 
@@ -552,15 +556,26 @@ public:
 		it.sizeInMmLabel = new QLabel(Owner);
 		it.itemCountLabel = new QLabel(Owner);
 		it.outputDPILabel = new QLabel(Owner);
+
+		auto* karlsunInfoLayout = new QVBoxLayout;
+		it.karlsunInfoWidget = new QWidget(Owner);
+		it.karlsunOffsetLabel = new QLabel(Owner);
+		it.karlsunRoundingLabel = new QLabel(Owner);
+
 		canvasInfoLayout->addWidget(it.canvasInfoTitleLabel);
-		it.infoToolbar->addWidget(it.canvasInfoWidget);
 		canvasInfoLayout->addWidget(it.outputDPILabel);
 		canvasInfoLayout->addWidget(it.widthLabel);
 		canvasInfoLayout->addWidget(it.heightLabel);
 		canvasInfoLayout->addWidget(it.sizeInMmLabel);
 		canvasInfoLayout->addWidget(it.itemCountLabel);
 		it.canvasInfoWidget->setLayout(canvasInfoLayout);
+		karlsunInfoLayout->addWidget(it.karlsunOffsetLabel);
+		karlsunInfoLayout->addWidget(it.karlsunRoundingLabel);
+		it.karlsunInfoWidget->setLayout(karlsunInfoLayout);
+
+		it.infoToolbar->addWidget(it.canvasInfoWidget);
 		it.infoToolbar->addSeparator();
+		it.infoToolbar->addWidget(it.karlsunInfoWidget);
 
 		Owner->addToolBar(InfoToolbarArea, it.infoToolbar);
 		updateInfoToolbar();
@@ -580,6 +595,11 @@ public:
 		const double widInMm = util::px2mm(canvasSize.width(), resultImageDPI);
 		const double hiInMm = util::px2mm(canvasSize.height(), resultImageDPI);
 		it.sizeInMmLabel->setText(QString("%3(mm) : %1 * %2").arg(QString::number(widInMm, 'f', 1)).arg(QString::number(hiInMm, 'f', 1)).arg(KorStr("사이즈")));
+
+		const int dpi = resultImageDPI;
+		const auto& st = globalKarlsunStyle;
+		it.karlsunOffsetLabel->setText(QString("%1 : %2px (%3mm)").arg(KorStr("칼선 오프셋")).arg(st.offset).arg(QString::number(util::px2mm(st.offset, dpi), 'f', 1)));
+		it.karlsunRoundingLabel->setText(QString("%1 : %2px (%3mm)").arg(KorStr("칼선 라운딩")).arg(st.roundPixel).arg(QString::number(util::px2mm(st.roundPixel, dpi), 'f', 1)));
 	}
 
 	void createCanvas()
