@@ -2,6 +2,8 @@
 
 //file IO
 #include <QFileDialog>
+#include <QPainter>
+#include <QPdfWriter>
 
 //logging
 #include "Logger.h"
@@ -37,7 +39,7 @@ class BinpackMainWindow::PImpl
 	BinpackMainWindow* Owner = 0;
 public:
 	PImpl(BinpackMainWindow* owner)
-		: Owner(owner) 
+		: Owner(owner)
 	{
 		//finalImage = std::make_shared<ImageDataRGB>(800, 600, RGB_WHITE);
 	}
@@ -107,7 +109,7 @@ public:
 		updateCanvas();
 		updateInfoToolbar();
 	}
-	
+
 	void sendBinImages2Canvas()
 	{
 		if (imageManager.isAble())
@@ -177,7 +179,7 @@ public:
 		for (auto ptr : imageManager.binImages)
 		{
 			ptr->updateKarlsun(
-				globalKarlsunStyle.offset, 
+				globalKarlsunStyle.offset,
 				globalKarlsunStyle.roundPixel,
 				globalKarlsunStyle.color
 			);
@@ -194,16 +196,16 @@ public:
 			qWarning() << "image mgr is not able to update karlsun";
 			return;
 		}
-			
+
 		// TODO : get style from GUI
 		//preset for debug
 
 		const auto imageCount = imageManager.imageCount();
-		
+
 		//if empty, put global style
 		if (styles.empty())
 			styles.emplace_back(KarlsunStyle::DefaultStyle());
-		
+
 		if (int styleCount = (int)styles.size(); styleCount < imageCount)
 		{
 			//duplicate last style
@@ -221,7 +223,7 @@ public:
 			else
 				failureCount++;
 		}
-		
+
 		if (failureCount)
 		{
 			qWarning() << QString("Failed to set %1 styles").arg(failureCount);
@@ -231,7 +233,7 @@ public:
 			qDebug() << "Succeded to update karlsun.";
 			sendBinImages2Canvas();
 		}
-			
+
 	}
 
 	inline BaseReceiver* selectReceiver(ReceiverType recType)
@@ -524,6 +526,50 @@ public:
 		addImageList(fl);
 	}
 
+	void saveResults()
+	{
+		saveResultImage();
+		savePDF();
+
+		Notify(KorStr("결과 저장"), KorStr("저장이 완료되었습니다"));
+	}
+
+	void savePDF()
+	{
+		if (!finalImage)
+		{
+			Notify(KorStr("이미지 저장"), KorStr("저장할 이미지가 없습니다"));
+			return;
+		}
+
+		const auto f = QFileDialog::getSaveFileName(Owner, KorStr("칼선 저장"), "", "PDF (*.pdf)");
+		if (f.isEmpty())
+			return;
+
+		auto images = imageManager.binImages;
+		std::vector<Karlsun> karlsuns;
+
+		for (BinImagePtr ptr : images)
+			karlsuns.push_back(ptr->karlsun);
+
+		const int wid = finalImage->width(), hi = finalImage->height();
+		
+		QPdfWriter pdfWriter(f);
+		pdfWriter.setPdfVersion(QPdfWriter::PdfVersion::PdfVersion_1_4);
+		pdfWriter.setResolution(resultImageDPI);
+		pdfWriter.setPageSizeMM({util::px2mm(wid, resultImageDPI), util::px2mm(hi, resultImageDPI)});
+		QMarginsF pageMargin(0, 0, 0, 0);
+		pdfWriter.setPageMargins(pageMargin);
+		
+		QPainter painter(&pdfWriter);
+		QPen pen(Qt::black);
+		pen.setWidthF(1.5);
+		painter.setPen(pen);
+
+		for (auto const& karlsun : karlsuns)
+			painter.drawRoundedRect(karlsun.rect, karlsun.style.roundPixel, karlsun.style.roundPixel);
+	}
+
 	void saveResultImage()
 	{
 		if (!finalImage)
@@ -630,7 +676,7 @@ public:
 		// control toolbar
 		auto& ct = controlToolbar;
 		connect(ct.openFileAct, &QAction::triggered, [=](bool c)	{ this->openImageFiles(); });
-		connect(ct.saveImageAct, &QAction::triggered, [=](bool c)	{ this->saveResultImage(); });
+		connect(ct.saveImageAct, &QAction::triggered, [=](bool c)	{ this->saveResults(); });
 		connect(ct.showImgAct, &QAction::triggered, [=](bool c)		{ this->showImage(c); });
 		connect(ct.showKsAct, &QAction::triggered, [=](bool c)		{ this->showKarlsun(c); });
 		connect(ct.showImgIdxAct, &QAction::triggered, [=](bool c)	{ this->showImageIndex(c); });
@@ -792,7 +838,7 @@ void BinpackMainWindow::keyPressEvent(QKeyEvent* event)
 	{
 		if (event->matches(QKeySequence::QKeySequence::Save))
 		{
-			pImpl->saveResultImage();
+			pImpl->saveResults();
 			return;
 		}
 		if (event->matches(QKeySequence::QKeySequence::Copy))

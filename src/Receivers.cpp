@@ -85,7 +85,7 @@ void SizeReceiver::initialize()
 	pImpl->curDPI = pImpl->Owner->DPI();
 
 	auto* editLayout = new QGridLayout;
-	auto* validator = new QIntValidator(0, 9999, this);
+	auto* validator = new QIntValidator(0, 99999, this);
 	pImpl->widEdit = new QLineEdit(this);
 	pImpl->widEdit->setValidator(validator);
 	pImpl->widEdit->setText(QString::number(pImpl->Owner->canvasSize().width()));
